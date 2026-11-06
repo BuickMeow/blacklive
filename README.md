@@ -55,6 +55,31 @@ A02 (Group)
 
 采样率是 Live 的全局 Preferences，不保存在 `.als` 里。请先在 Live 的 Audio 设置里设好。
 
+### 检查模板 XML
+
+```bash
+gunzip -c template.als > template.xml
+grep -n '<GroupTrack' template.xml
+grep -n '<MidiClip' template.xml
+grep -n '<MidiNoteEvent' template.xml | head
+```
+
+Live 12.3 的音符结构：
+
+```xml
+<Notes>
+  <KeyTracks>
+    <KeyTrack Id="0">
+      <Notes>
+        <MidiNoteEvent Time="0" Duration="0.5" Velocity="100" OffVelocity="64" NoteId="1" />
+      </Notes>
+      <MidiKey Value="60" />
+    </KeyTrack>
+  </KeyTracks>
+  <NoteIdGenerator><NextId Value="2" /></NoteIdGenerator>
+</Notes>
+```
+
 ---
 
 ## 3. 运行
