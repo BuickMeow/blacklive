@@ -950,7 +950,7 @@ fn build_tempo_events(initial_bpm: f64, tempo_map: Option<&[(f64, f64)]>) -> Vec
             current = bpm;
             continue;
         }
-        if (bpm - current).abs() < 1e-9 {
+        if bpm == current {
             continue;
         }
         // Two events at the same beat encode a step: hold the old value up to

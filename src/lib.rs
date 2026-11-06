@@ -20,7 +20,7 @@ pub use midi::{MidiStats, Note, ParsedMidi, parse_midi_file};
 /// Ableton writes beats as decimal strings; scientific notation (`1e-7`) is not
 /// used in `.als` files and is best avoided even though XML would accept it.
 pub fn format_num(value: f64) -> String {
-    if !value.is_finite() || value.abs() < 5e-13 {
+    if !value.is_finite() {
         return "0".to_string();
     }
     let text = format!("{value:.12}");

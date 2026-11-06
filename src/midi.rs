@@ -421,21 +421,6 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
         ));
     }
 
-    if stats.max_polyphony > 256 {
-        stats.warnings.push(format!(
-            "最大同时发声音符数为 {}；Grand Piano 可能丢音或 CPU 吃紧，建议先试听。",
-            stats.max_polyphony
-        ));
-    }
-    let long_notes = notes.iter().filter(|note| note.duration > 16.0).count();
-    if long_notes > 0 {
-        stats.warnings.push(format!(
-            "{} 个音符超过 16 beats（最长 {} beats）；如果是异常长音/挂音，可用「同音高重叠截短」或后续的最大时值选项处理。",
-            long_notes,
-            crate::format_num(stats.max_duration_beats)
-        ));
-    }
-
     Ok(ParsedMidi { notes, stats })
 }
 

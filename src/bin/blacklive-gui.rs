@@ -466,11 +466,7 @@ impl App {
                 ui.end_row();
 
                 ui.label("移调");
-                ui.add(
-                    egui::DragValue::new(&mut self.transpose)
-                        .range(-48..=48)
-                        .suffix(" 半音"),
-                );
+                ui.add(egui::DragValue::new(&mut self.transpose).suffix(" 半音"));
                 ui.label("BPM");
                 ui.add(egui::TextEdit::singleline(&mut self.bpm_text).desired_width(90.0));
                 ui.end_row();

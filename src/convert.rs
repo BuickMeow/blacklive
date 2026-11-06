@@ -133,14 +133,6 @@ pub fn convert_midi_to_als(
     if !bpm.is_finite() || bpm <= 0.0 {
         bail!("BPM 必须是正数");
     }
-    let clamped_bpm = bpm.clamp(20.0, 999.0);
-    if (clamped_bpm - bpm).abs() > 1e-9 {
-        warnings.push(format!(
-            "BPM {} 超出 Ableton 的 20–999 范围，已夹紧为 {}。",
-            crate::format_num(bpm),
-            crate::format_num(clamped_bpm)
-        ));
-    }
     if opts.bpm_override.is_none() && parsed.stats.initial_bpm.is_none() {
         warnings.push(format!(
             "MIDI 没有 Tempo 事件，使用模板 BPM {}。",
@@ -160,7 +152,7 @@ pub fn convert_midi_to_als(
         .iter()
         .map(|n| n.start + n.duration)
         .fold(0.0, f64::max);
-    let clip_length_beats = (((raw_end + opts.tail_beats.max(0.0)) * 4.0).ceil() / 4.0).max(0.25);
+    let clip_length_beats = raw_end + opts.tail_beats.max(0.0);
 
     let time_signature = parsed
         .stats
@@ -174,7 +166,7 @@ pub fn convert_midi_to_als(
             let beat = event.tick as f64 / parsed.stats.ppq as f64;
             if points
                 .last()
-                .is_some_and(|(_, previous): &(f64, f64)| (previous - event.bpm).abs() < 1e-9)
+                .is_some_and(|(_, previous): &(f64, f64)| *previous == event.bpm)
             {
                 continue;
             }
@@ -197,7 +189,7 @@ pub fn convert_midi_to_als(
             notes: &filtered.notes,
             clip_length_beats,
             clip_start_beats: start_beats,
-            bpm: clamped_bpm,
+            bpm,
             clip_name: &clip_name,
             track_name: requested_track_name.as_deref(),
             time_signature,
@@ -219,7 +211,7 @@ pub fn convert_midi_to_als(
         midi_path: midi_path.to_path_buf(),
         template_clip: injection.template_label,
         arrangement_created: injection.arrangement_created,
-        bpm: clamped_bpm,
+        bpm,
         tempo_automation,
         clip_start_beats: start_beats,
         clip_length_beats,
@@ -502,6 +494,6 @@ mod tests {
             },
         ];
         assert_eq!(trim_same_pitch_overlaps(&mut notes), 1);
-        assert!((notes[0].duration - 1.0).abs() < 1e-9);
+        assert_eq!(notes[0].duration, 1.0);
     }
 }
