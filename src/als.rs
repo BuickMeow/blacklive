@@ -115,6 +115,7 @@ impl ClipInfo {
 #[derive(Clone, Debug)]
 pub struct TrackInfo {
     pub index: usize,
+    pub id: Option<u32>,
     pub name: String,
     pub kind: TrackKind,
     pub group_id: Option<u32>,
@@ -490,6 +491,7 @@ fn build_report(path: &Path, root: &Element, clips: &[RawClip]) -> Result<Templa
         let (devices, has_instrument) = track_devices(track);
         tracks.push(TrackInfo {
             index: track_index,
+            id: track_id(track),
             name: track_name(track),
             kind,
             group_id,
@@ -568,6 +570,30 @@ fn build_report(path: &Path, root: &Element, clips: &[RawClip]) -> Result<Templa
                     child_count
                 ));
             }
+        }
+    }
+    for track in &tracks {
+        if track.kind != TrackKind::Group || !is_channel_group_name(&track.name) {
+            continue;
+        }
+        let child_count = tracks
+            .iter()
+            .filter(|t| t.kind == TrackKind::Midi && t.group_id == track.id)
+            .count();
+        if child_count != 1 {
+            warnings.push(format!(
+                "Group「{}」里有 {} 条 MIDI 轨道；作为通道原型时要求恰好一条。",
+                track.name, child_count
+            ));
+        }
+        if !clips
+            .iter()
+            .any(|clip| clip.info.group_name.as_deref() == Some(track.name.as_str()))
+        {
+            warnings.push(format!(
+                "Group「{}」没有占位 Clip；对应通道会回退到默认原型。",
+                track.name
+            ));
         }
     }
     let minor_version = attr(root, "MinorVersion").unwrap_or("?");
@@ -1797,6 +1823,11 @@ fn looks_like_grand_piano(track_name: &str, devices: &[String]) -> bool {
         let device = device.to_lowercase();
         device.contains("grand piano") || device.contains("grandpiano")
     })
+}
+
+fn is_channel_group_name(name: &str) -> bool {
+    name.strip_prefix('A')
+        .is_some_and(|rest| rest.len() == 2 && rest.chars().all(|ch| ch.is_ascii_digit()))
 }
 
 fn track_kind(track: &Element) -> TrackKind {
