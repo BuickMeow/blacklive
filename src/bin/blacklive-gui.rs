@@ -315,17 +315,13 @@ impl App {
     fn show_files(&mut self, ui: &mut egui::Ui) -> FileActions {
         let mut actions = FileActions::default();
 
-        ui.label(RichText::new("1. 输入文件").strong());
         egui::Grid::new("files")
             .num_columns(3)
             .spacing([8.0, 8.0])
             .show(ui, |ui| {
                 ui.label("MIDI");
-                let response = ui.add(
-                    egui::TextEdit::singleline(&mut self.midi_path)
-                        .desired_width(620.0)
-                        .hint_text("选择 .mid / .midi"),
-                );
+                let response =
+                    ui.add(egui::TextEdit::singleline(&mut self.midi_path).desired_width(620.0));
                 if response.changed() {
                     self.midi_stats = None;
                     self.last_result = None;
@@ -336,11 +332,8 @@ impl App {
                 ui.end_row();
 
                 ui.label("模板 .als");
-                let response = ui.add(
-                    egui::TextEdit::singleline(&mut self.template_path)
-                        .desired_width(620.0)
-                        .hint_text("由你的 Ableton Live 版本保存的干净模板"),
-                );
+                let response = ui
+                    .add(egui::TextEdit::singleline(&mut self.template_path).desired_width(620.0));
                 if response.changed() {
                     self.template_report = None;
                     self.selected_clip = None;
@@ -357,11 +350,7 @@ impl App {
                 ui.end_row();
 
                 ui.label("输出 .als");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.output_path)
-                        .desired_width(620.0)
-                        .hint_text("留空 = 与 MIDI 同目录同名 .als"),
-                );
+                ui.add(egui::TextEdit::singleline(&mut self.output_path).desired_width(620.0));
                 if ui.button("另存为…").clicked() {
                     actions.choose_output = true;
                 }
@@ -372,14 +361,9 @@ impl App {
             if ui.button("解析 MIDI").clicked() {
                 actions.analyze_midi = true;
             }
-            if ui.button("导出模板 XML（调试）").clicked() {
+            if ui.button("导出模板 XML").clicked() {
                 actions.dump_xml = true;
             }
-            ui.label(
-                RichText::new("也可以把 .mid / .als 直接拖进窗口")
-                    .small()
-                    .color(Color32::GRAY),
-            );
         });
         actions
     }
@@ -388,26 +372,20 @@ impl App {
         let Some(report) = &self.template_report else {
             return;
         };
-        ui.add_space(4.0);
-        ui.label(RichText::new("2. 模板与目标 Clip").strong());
-        ui.horizontal_wrapped(|ui| {
-            ui.monospace(format!(
-                "Live {} · BPM {} · {} MIDI tracks · {} clips",
-                report.minor_version,
-                report
-                    .bpm
-                    .map(blacklive::format_num)
-                    .unwrap_or_else(|| "?".into()),
-                report.tracks.len(),
-                report.clips.len()
-            ));
-        });
+        ui.add_space(6.0);
+        ui.label(format!(
+            "Live {}   BPM {}   {} 条轨道   {} 个 Clip",
+            report.minor_version,
+            report
+                .bpm
+                .map(blacklive::format_num)
+                .unwrap_or_else(|| "?".into()),
+            report.tracks.len(),
+            report.clips.len()
+        ));
 
         if report.clips.is_empty() {
-            ui.colored_label(
-                Color32::from_rgb(240, 170, 80),
-                "模板里没有 MidiClip：请在 Live 里放一个短占位 Clip 并保存。",
-            );
+            ui.colored_label(Color32::from_rgb(240, 170, 80), "模板里没有 MidiClip。");
         } else {
             let mut selected = self.selected_clip;
             for clip in &report.clips {
@@ -417,18 +395,18 @@ impl App {
             self.selected_clip = selected;
         }
 
-        egui::CollapsingHeader::new("轨道 / 设备")
+        egui::CollapsingHeader::new("轨道")
             .default_open(false)
             .show(ui, |ui| {
                 for track in &report.tracks {
-                    ui.monospace(format!(
+                    ui.label(format!(
                         "#{} {}{}",
                         track.index,
                         track.name,
                         if track.has_instrument {
                             ""
                         } else {
-                            "  [!] 未检测到乐器"
+                            "  [!] 无乐器"
                         }
                     ));
                     if !track.devices.is_empty() {
@@ -441,9 +419,7 @@ impl App {
             ui.add_space(2.0);
             for warning in &report.warnings {
                 ui.label(
-                    RichText::new(format!("⚠ {warning}"))
-                        .small()
-                        .color(Color32::from_rgb(235, 180, 90)),
+                    RichText::new(format!("⚠ {warning}")).color(Color32::from_rgb(235, 180, 90)),
                 );
             }
         }
@@ -453,10 +429,9 @@ impl App {
         let Some(stats) = &self.midi_stats else {
             return;
         };
-        ui.add_space(4.0);
-        ui.label(RichText::new("MIDI 诊断").strong());
-        ui.monospace(format!(
-            "{} notes · PPQ {} · BPM {} · max poly {} · {} beats",
+        ui.add_space(6.0);
+        ui.label(format!(
+            "{} 音符   PPQ {}   BPM {}   最大复音 {}   {} beats",
             stats.note_count,
             stats.ppq,
             stats
@@ -468,50 +443,26 @@ impl App {
         ));
         ui.horizontal_wrapped(|ui| {
             for (channel, count) in &stats.notes_per_channel {
-                let label = if *channel == 9 {
-                    format!("ch9(GM drums): {count}")
-                } else {
-                    format!("ch{}: {count}", channel)
-                };
-                ui.monospace(label);
+                ui.label(format!("ch{}: {count}", channel));
             }
         });
         if stats.sustain_event_count > 0 {
-            ui.label(
-                RichText::new(format!(
-                    "CC64 延音踏板 ×{}（当前版本忽略，见警告）",
-                    stats.sustain_event_count
-                ))
-                .small()
-                .color(Color32::from_rgb(235, 180, 90)),
-            );
+            ui.label(format!("CC64: {}", stats.sustain_event_count));
         }
         if stats.tempo_map.len() > 1 {
-            ui.label(
-                RichText::new(format!(
-                    "MIDI 有 {} 个有效变速点；转换时写入 Ableton Tempo 自动化。",
-                    stats.tempo_map.len()
-                ))
-                .small()
-                .color(Color32::from_rgb(135, 190, 240)),
-            );
+            ui.label(format!("Tempo 点: {}", stats.tempo_map.len()));
         }
     }
 
     fn show_options(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(4.0);
-        ui.label(RichText::new("3. 转换选项").strong());
+        ui.add_space(6.0);
         egui::Grid::new("options")
             .num_columns(4)
             .spacing([10.0, 8.0])
             .show(ui, |ui| {
                 ui.label("通道");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.channels)
-                        .desired_width(150.0)
-                        .hint_text("0-15，空=全部，排除 9"),
-                );
-                ui.checkbox(&mut self.include_drum_channel, "包含 GM 鼓通道 (ch9)");
+                ui.add(egui::TextEdit::singleline(&mut self.channels).desired_width(150.0));
+                ui.checkbox(&mut self.include_drum_channel, "包含 GM 鼓通道");
                 ui.end_row();
 
                 ui.label("移调");
@@ -521,24 +472,18 @@ impl App {
                         .suffix(" 半音"),
                 );
                 ui.label("BPM");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.bpm_text)
-                        .desired_width(90.0)
-                        .hint_text("空=MIDI 初始 BPM"),
-                );
+                ui.add(egui::TextEdit::singleline(&mut self.bpm_text).desired_width(90.0));
                 ui.end_row();
 
                 ui.label("最短时值");
                 ui.add(
                     egui::DragValue::new(&mut self.min_note_beats)
-                        .range(0.0..=16.0)
                         .speed(0.001)
                         .suffix(" beats"),
                 );
                 ui.label("尾部留白");
                 ui.add(
                     egui::DragValue::new(&mut self.tail_beats)
-                        .range(0.0..=64.0)
                         .speed(0.01)
                         .suffix(" beats"),
                 );
@@ -547,7 +492,6 @@ impl App {
                 ui.label("Arrangement 起点");
                 ui.add(
                     egui::DragValue::new(&mut self.start_beats)
-                        .range(0.0..=100_000.0)
                         .speed(0.25)
                         .suffix(" beats"),
                 );
@@ -555,27 +499,11 @@ impl App {
                 ui.end_row();
 
                 ui.label("Clip 名称");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.clip_name)
-                        .desired_width(150.0)
-                        .hint_text("空=MIDI 文件名"),
-                );
+                ui.add(egui::TextEdit::singleline(&mut self.clip_name).desired_width(150.0));
                 ui.label("轨道名称");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.track_name)
-                        .desired_width(150.0)
-                        .hint_text("空=保持模板名称"),
-                );
+                ui.add(egui::TextEdit::singleline(&mut self.track_name).desired_width(150.0));
                 ui.end_row();
             });
-        ui.label(
-            RichText::new(
-                "默认把 MIDI 的 tick/PPQ 直接换成 beats；GM 鼓通道（index 9）默认排除。\
-                 需要多轨/多音色时先保持单轨 Grand Piano，再逐步扩展。",
-            )
-            .small()
-            .color(Color32::GRAY),
-        );
     }
 
     fn show_actions(&mut self, ui: &mut egui::Ui) -> ActionFlags {
@@ -616,21 +544,18 @@ impl App {
 
         if let Some(result) = &self.last_result {
             ui.horizontal_wrapped(|ui| {
-                ui.monospace(format!(
-                    "写入 {} / 源 {} 音符 · BPM {} · 长度 {} beats",
+                ui.label(format!(
+                    "写入 {} / 源 {} 音符   BPM {}   长度 {} beats",
                     result.used_note_count,
                     result.source_note_count,
                     blacklive::format_num(result.bpm),
                     blacklive::format_num(result.clip_length_beats)
                 ));
-                if result.arrangement_created {
-                    ui.colored_label(Color32::from_rgb(135, 190, 240), "已克隆到 Arrangement");
-                }
                 if result.tempo_automation {
-                    ui.colored_label(
-                        Color32::from_rgb(135, 190, 240),
-                        format!("Tempo 自动化 {} 点", result.midi_stats.tempo_map.len()),
-                    );
+                    ui.label(format!(
+                        "Tempo 自动化 {} 点",
+                        result.midi_stats.tempo_map.len()
+                    ));
                 }
             });
         }
@@ -650,7 +575,7 @@ impl App {
                         } else {
                             Color32::GRAY
                         };
-                        ui.label(RichText::new(line).monospace().small().color(color));
+                        ui.label(RichText::new(line).color(color));
                     }
                 });
         }
@@ -666,7 +591,6 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show(ui, |ui| {
             ui.heading("Blacklive");
-            ui.label(RichText::new("MIDI → Ableton Live .als（模板注入）").color(Color32::GRAY));
             ui.separator();
 
             egui::ScrollArea::vertical()
