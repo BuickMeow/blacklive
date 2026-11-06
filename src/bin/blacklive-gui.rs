@@ -75,7 +75,7 @@ impl App {
             selected_clip: None,
             midi_stats: None,
             last_result: None,
-            status: "选择 MIDI 和模板 .als，然后点击「转换并生成 .als」。".to_string(),
+            status: "选择 MIDI 和模板".to_string(),
             status_is_error: false,
             log: Vec::new(),
         };

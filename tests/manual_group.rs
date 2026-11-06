@@ -66,10 +66,16 @@ fn convert_real_group_template() {
             clip.candidate_index, clip.group_name, clip.location, clip.track_name, clip.note_count
         );
     }
-    let group_clip = out_report
+    let group_clips: Vec<_> = out_report
         .clips
         .iter()
-        .find(|clip| clip.group_name.as_deref() == Some("A01"))
-        .expect("A01 group clip");
-    assert_eq!(group_clip.note_count, result.used_note_count);
+        .filter(|clip| {
+            clip.group_name
+                .as_deref()
+                .is_some_and(|name| name.starts_with('A'))
+        })
+        .collect();
+    assert!(!group_clips.is_empty());
+    let group_note_count: usize = group_clips.iter().map(|clip| clip.note_count).sum();
+    assert_eq!(group_note_count, result.used_note_count);
 }

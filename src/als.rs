@@ -856,6 +856,7 @@ pub(crate) fn inject_groups(
             set_linked_track_group_id(&mut new_child, -1);
             set_track_unfolded(&mut new_child, true);
             set_group_output(&mut new_child);
+            set_record_arm(&mut new_child, false);
 
             let targets = controller_targets(&new_child);
             strip_midi_clips(&mut new_child);
@@ -974,6 +975,14 @@ fn set_group_output(track: &mut Element) {
     if let Some(routing) = find_descendant_mut(track, "AudioOutputRouting") {
         set_child_value(routing, "Target", "AudioOut/GroupTrack");
         set_child_value(routing, "UpperDisplayString", "Group");
+    }
+}
+
+fn set_record_arm(track: &mut Element, armed: bool) {
+    if let Some(recorder) = find_descendant_mut(track, "Recorder")
+        && recorder.get_child("IsArmed").is_some()
+    {
+        set_child_value(recorder, "IsArmed", if armed { "true" } else { "false" });
     }
 }
 
