@@ -7,22 +7,16 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1"
-clap = { version = "4", features = ["derive"] }
 eframe = "0.37"
 egui = "0.37"
 flate2 = "1"
 midly = "0.5"
 rfd = "0.17"
-thiserror = "2"
 xmltree = { version = "0.12", features = ["attribute-order"] }
 
 [[bin]]
 name = "blacklive"
 path = "src/bin/blacklive-gui.rs"
-
-[[bin]]
-name = "blacklive-cli"
-path = "src/bin/blacklive-cli.rs"
 
 [profile.release]
 lto = "thin"
