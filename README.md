@@ -233,6 +233,15 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
 - `cargo test`：7 个单元测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
 
+手动集成测试：
+
+```bash
+BLACKLIVE_TEMPLATE=template.als \
+BLACKLIVE_MIDI=input.mid \
+BLACKLIVE_OUT=output.als \
+cargo test --test manual_group -- --ignored --nocapture
+```
+
 ---
 
 ## 9. 需要你确认
