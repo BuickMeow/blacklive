@@ -330,9 +330,9 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
         ));
     }
     if stats.programs.values().any(|set| !set.is_empty()) {
-        stats
-            .warnings
-            .push("检测到 Program Change；当前单轨 Grand Piano 方案会忽略音色切换。".to_string());
+        stats.warnings.push(
+            "检测到 Program Change；当前按通道分组，Program Change 不会切换乐器。".to_string(),
+        );
     }
 
     raw_events.sort_by_key(|event| (event.tick, event.order));

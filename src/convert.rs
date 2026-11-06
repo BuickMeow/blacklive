@@ -295,9 +295,10 @@ pub fn convert_midi_to_als(
     als::validate_live_set(&root)?;
 
     let output_xml = als::serialize_xml(&root)?;
-    // Re-parse before writing, so an XML serialization bug can never produce a
-    // broken .als silently.
-    als::parse_xml(&output_xml).context("输出 XML 自检失败")?;
+    // Re-parse and validate before writing, so an XML serialization or ID bug
+    // can never produce a broken .als silently.
+    let reparsed = als::parse_xml(&output_xml).context("输出 XML 自检失败")?;
+    als::validate_live_set(&reparsed).context("输出 ID 自检失败")?;
     als::write_als_atomic(output_path, &output_xml)?;
 
     Ok(ConversionResult {
