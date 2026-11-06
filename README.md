@@ -26,7 +26,7 @@ A02 (Group)
 ```
 
 - 每个 MIDI 通道生成一个 **GroupTrack**，命名 `A01`、`A02`……
-- 同一通道内，每个源 MIDI 轨道生成一条子 MIDI 轨道。
+- 同一通道内，每个源 MIDI 轨道生成一条子 MIDI 轨道；该通道所有子轨都在同一个 Group 里。
 - 所有子轨都从模板里的原型 MIDI 轨克隆，因此使用同一个乐器/设备链。
 - Group 从模板里的原型 Group 克隆，Group 的自动化、效果器、Mixer 设置都会保留。
 - 如果模板里已经有名为 `A01`、`A02`… 的 Group，会优先用对应 Group 作为该通道的原型；没有则使用界面里选中的默认原型。这样可以给不同通道不同乐器/效果。
@@ -217,7 +217,19 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 
 ---
 
-## 7. 当前限制
+## 7. 黑乐谱性能建议
+
+- 优先用采样钢琴：`11-Ac Piano Upright` 是当前 EmptyPiano 里最轻的（单个 `OriginalSimpler` + 一个 Reverb），适合做默认原型。
+- 电钢可用 `9-E-Piano Straight`（单个 Operator + Reverb/Glue），CPU 很轻。
+- `6-E-Piano Basic`、`12-E-Piano Old School` 属于中等；多链/效果会叠加。
+- `2-E-Piano Dreamy`（Collision）、`5-Analog Piano`（Drift）、`8-Cracked Piano`（Meld）是物理建模/合成器，单 voice 成本更高。
+- `10-Childhood Home Piano`（3 个 MultiSampler、92 个 SampleRef、踏板/按键噪声、混响）、`7-Abyss Keys`（双层 Wavetable + 效果）、`13-Exo Keys`（双层 Wavetable + Delay/Reverb）在 1 万音符以上会明显更吃 CPU。
+- 每个 Group 包含该通道的所有源 MIDI 子轨；但**每条子轨都克隆一套乐器**会让 CPU 随子轨数线性增长。更省 CPU 的做法是每个 Group 只保留一个乐器实例，其余 MIDI 轨通过 MIDI 路由到它（尚未实现），或者把同通道源轨合并成一条子轨。
+- 黑乐谱优先把 Reverb/Delay 放到 Group 或共享 Return，不要在每条子轨里各克隆一个。
+- 建议给钢琴设置合适的复音上限/voice stealing，并考虑在最终播放时 freeze/flatten。
+- 如果所有通道都是 program 0，用一个默认钢琴原型就够；需要每通道不同音色时再做 A01/A02 原型。
+
+## 8. 当前限制
 
 - 原型 Group 下必须恰好一条 MIDI 轨道。
 - 可以按 `A01`、`A02`… 提供不同原型 Group；未提供的通道使用默认原型。原型组里的子轨数量和乐器由模板决定。
@@ -231,7 +243,7 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 
 ---
 
-## 8. 已验证
+## 9. 已验证
 
 - 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、ID 重映射、Arrangement Clip 注入、CC64 Clip 自动化、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
 - 单通道 1,228 音符、含 CC64 自动化：输出约 184 KB `.als`。
@@ -251,7 +263,7 @@ cargo test --test manual_group -- --ignored --nocapture
 
 ---
 
-## 9. 需要你确认
+## 10. 需要你确认
 
 1. **模板**：请提供 `template.als`：一个 Group，命名 `A01`，里面恰好一条 Grand Piano MIDI 轨 + 一个占位 Clip。
 2. **通道/乐器**：如果不同通道要不同钢琴/乐器，请在模板里放 `A01`、`A02`… 各自的原型 Group；否则统一用默认原型。
