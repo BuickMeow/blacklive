@@ -2648,6 +2648,14 @@ mod tests {
     }
 
     #[test]
+    fn embedded_default_template_passes_live_id_validation() {
+        let xml =
+            read_als_bytes(crate::DEFAULT_TEMPLATE_BYTES, crate::DEFAULT_TEMPLATE_LABEL).unwrap();
+        let root = parse_xml(&xml).unwrap();
+        validate_live_set(&root).unwrap();
+    }
+
+    #[test]
     fn freeze_sequencer_modulation_targets_get_unique_ids() {
         let mut root = parse_xml(MINI_GROUP.as_bytes()).unwrap();
         {

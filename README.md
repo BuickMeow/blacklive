@@ -82,7 +82,7 @@ A01 (Group，干声)
 > 路由 Group 需要 **1 条乐器轨（无 Clip） + 1 条 MIDI 轨（有占位 Clip，MIDI To 指向乐器轨）**。
 > 旧式模板也可以：Group 里只有 1 条“乐器 + Clip”轨；转换器会退化为每子轨一个乐器。
 > 可选：`A01`、`A02`… 每个通道一个原型 Group；未提供对应名称时使用默认原型。
-> 内置模板由 `luyou.als` 的 `Ac Piano Upright` + 一条 MIDI 路由轨整理而来；源码里的 `assets/default.als` 就是它。
+> 内置模板由 Live 在 `luyou.als` 里生成的 `A01` Group 整理而来；源码里的 `assets/default.als` 就是它，已实测 Live 12.3.8 能直接加载。
 > 转换器默认关闭原型乐器内部的 Reverb；如果要保留，高级里关掉「关闭乐器内 Reverb/Delay」。
 
 采样率是 Live 的全局 Preferences，不保存在 `.als` 里。请先在 Live 的 Audio 设置里设好。
@@ -302,15 +302,17 @@ pub fn inspect_default_template() -> Result<TemplateReport>;
 
 ## 9. 已验证
 
-- 内置模板：A01 路由 Group、1 条 `Ac Piano Upright` 乐器轨 + 1 条 MIDI 轨、无音符占位 Clip、Group 干声、Return/Send 数量与模板一致。
+- 内置模板：Live 自己生成的 A01 路由 Group、1 条 `Ac Piano Upright` 乐器轨 + 1 条 MIDI 轨、无音符占位 Clip、Group 干声、Return/Send 数量与模板一致。
 - 内置模板转换：纯钢琴多通道 / 多源轨 / 空轨保留 / meta-only 轨跳过，XML/gzip 与 ID 自检通过。
+- Live 12.3.8 实测打开：内置模板、单通道 `satpiano` 输出、15 通道 `EnchantedLove` 输出均可正常加载。
+- 早期从其他工程克隆 GroupTrack 会导致 Live `map::at` 闪退，已改为使用 Live 在当前工程里生成的 Group。
 - 多通道克隆：`FreezeSequencer` 里的 `*ModulationTarget` 也参与全局 ID 重映射；15 通道工程输出无重复 PointeeId。
 - 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、全局 ID 重映射、Arrangement Clip 注入、MIDI 路由、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
 - 单通道 1,228 音符：输出约 184 KB `.als`。
 - 68 万音符黑 MIDI（5 MB 输入、15 个通道组）：release 下约 3.3 秒转换，输出约 4.2 MB `.als`，峰值内存约 1.7 GB。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
 - A01/A02 不同原型测试：A01 使用 Operator 链，A02 使用 Drift 链；输出正确按通道选择不同原型，ID 校验通过。
-- `cargo test`：9 个单元测试 + 3 个内置模板集成测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
+- `cargo test`：10 个单元测试 + 3 个内置模板集成测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
 
 手动集成测试：
 
