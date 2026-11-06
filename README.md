@@ -3,12 +3,12 @@
 把 MIDI 转换成 Ableton Live `.als` 工程，采用 **模板注入**，不从头生成 `.als`。
 
 - 输入：标准 MIDI（`.mid` / `.midi`）
-- 模板：用户在自己的 Ableton Live 版本里保存的干净工程
+- 模板：默认内置干净的 `Ac Piano Upright` 路由模板；需要换音色/效果/Live 版本时才用自定义模板
 - 输出：按 MIDI 通道分 Group 的 Live 工程
 - GUI：egui / eframe **0.37**
-- 目标规模：约 1 万音符；已验证 5.4 万音符黑乐谱 MIDI
+- 目标规模：纯钢琴、无 CC 黑乐谱；已实测 68 万音符、15 个通道组
 
-> 已用真实 Live 12.3 工程模板与真实 MIDI 跑通：Group 克隆、子轨克隆、全局 ID 重映射、CC64 Clip 自动化、Tempo 自动化均通过 XML/gzip 自检。尚未在 Live 里实际点开试听；最后一步需要你的 Grand Piano 模板。
+> 已用真实 Live 12.3 工程模板与真实 MIDI 跑通：Group 克隆、子轨克隆、全局 ID 重映射、Pitch Bend Clip 自动化、Tempo 自动化、空轨保留均通过 XML/gzip 自检。尚未在 Live 里实际点开试听；最后一步需要你打开输出验证音色、力度和 Group 效果。
 
 ---
 
@@ -35,8 +35,10 @@ A02 (Group)
 - 如果模板里已经有名为 `A01`、`A02`… 的 Group，会优先用对应 Group 作为该通道的原型；没有则使用界面里选中的默认原型。这样可以给不同通道不同乐器/效果。
 - MIDI 子轨的音频输出不重要（它们没有乐器）；`A01 Inst` 的音频输出指向 Group。
 - 每个 MIDI 子轨生成一个 Arrangement Clip。
-- Pitch Bend 写在第一条 MIDI 子轨的 Clip Envelope 里，对整个通道共用一台钢琴生效。MIDI CC 暂时只解析/统计，不写入；后续再做 CC→效果映射。
+- Pitch Bend 写在最长的一条有音符 MIDI 子轨的 Clip Envelope 里，对整个通道共用一台钢琴生效。MIDI CC 暂时只解析/统计，不写入；后续再做 CC→效果映射。
 - MIDI Tempo Map 写成 Master Tempo 自动化。
+
+内置默认模板就是这套结构：一个 `A01` Group，里面是 `Ac Piano Upright` 乐器轨 + 一条路由 MIDI 轨，干声，无 CC 依赖。程序会按 MIDI 的通道数克隆出 `A01`、`A02`……
 
 也兼容旧式单轨模式：Group 里只有一条“乐器 + Clip”轨道时，转换器会按源轨道克隆这条轨（每子轨一个乐器）。
 
@@ -44,9 +46,26 @@ A02 (Group)
 
 ---
 
-## 2. 模板要求
+## 2. 模板
 
-模板是整个方案的关键。模板里的 Live 版本、钢琴设备、Group 效果器、自动化、Mixer 设置都会被保留。
+默认**不需要手动选模板**。程序内置 `assets/default.als`：
+
+```text
+A01 (Group，干声)
+├── A01 Inst   (Ac Piano Upright，无 Clip)
+└── A01-01     (纯 MIDI 轨，空占位 Clip，MIDI To = A01 Inst)
+```
+
+内置模板保留 Live 12.3 的工程骨架、`Ac Piano Upright` 设备状态、Group/Mixer/Return/ID 体系。转换时只替换音符、Clip 长度、Tempo 和 Pitch Bend，所以任何纯钢琴、无 CC 的 MIDI 都可以直接导出。
+
+只有这些情况才需要自定义模板：
+
+- 换钢琴/音色，或调整 `Ac Piano Upright` 的 ADSR/音色
+- 给不同通道挂不同 Group 效果器
+- 换 Live 版本
+- 需要自定义 Return/Send/Master 状态
+
+自定义模板会保留其中的 Live 版本、钢琴设备、Group 效果器、自动化、Mixer 设置。
 
 推荐使用**路由模板**：
 
@@ -63,8 +82,8 @@ A02 (Group)
 > 路由 Group 需要 **1 条乐器轨（无 Clip） + 1 条 MIDI 轨（有占位 Clip，MIDI To 指向乐器轨）**。
 > 旧式模板也可以：Group 里只有 1 条“乐器 + Clip”轨；转换器会退化为每子轨一个乐器。
 > 可选：`A01`、`A02`… 每个通道一个原型 Group；未提供对应名称时使用默认原型。
-> `luyou.als` 已经包含 `Ac Piano Upright` + 一条 MIDI 轨路由；把这两条轨 `Cmd+G` 成 `A01` 并保存即可作为路由模板。
-> 转换器默认关闭原型乐器内部的 Reverb；如果要保留，界面里关掉「关闭乐器内 Reverb/Delay」。
+> 内置模板由 `luyou.als` 的 `Ac Piano Upright` + 一条 MIDI 路由轨整理而来；源码里的 `assets/default.als` 就是它。
+> 转换器默认关闭原型乐器内部的 Reverb；如果要保留，高级里关掉「关闭乐器内 Reverb/Delay」。
 
 采样率是 Live 的全局 Preferences，不保存在 `.als` 里。请先在 Live 的 Audio 设置里设好。
 
@@ -102,15 +121,26 @@ cd /Users/jieneng/Documents/GitHub/blacklive
 cargo run --release --bin blacklive
 ```
 
-界面支持：
+界面主流程：
 
-- 选择 MIDI / 模板 `.als` / 输出 `.als`
-- 拖拽 `.mid` / `.als` 到窗口
+```text
+[选择 MIDI…]  [导出 .als]
+```
+
+- 默认使用内置 `Ac Piano Upright` 模板，不用选模板。
+- 输出默认放在 MIDI 同目录、同名的 `.als`。
+- 拖拽 `.mid` / `.midi` 到窗口即可。
+- 导出后可直接「在 Live 中打开」或「打开所在文件夹」。
+
+「高级」里保留：
+
+- 自定义模板 `.als` / 切回内置模板
+- 输出路径
 - 分析模板，列出 Group、轨道、Clip
 - 解析 MIDI，显示音符数、通道、PPQ、BPM、最大复音、变速点、每通道 CC/Pitch Bend 数量
 - 通道过滤、移调、BPM 覆盖、最短时值、尾部留白、起点、同音高重叠处理
-- 按源轨道拆分、MIDI 自动化开关
-- 转换后在 Live 中打开、打开输出文件夹
+- 按源轨道拆分、关闭乐器内 Reverb/Delay
+- 导出模板 XML（内置或自定义）
 
 ---
 
@@ -134,13 +164,12 @@ Ableton 的 `Time` / `Duration` 使用四分音符 beat。PPQ 从 MIDI 头读取
 
 ### Pitch Bend 自动化
 
-- MIDI CC 仍然解析并按通道统计，界面显示数量；暂时不写 Clip Envelope。
-- 每个子轨 Clip 写入对应的 `ClipEnvelope` 自动化。
+- MIDI CC 仍然解析并按通道统计，界面显示数量；暂时不写 Clip Envelope，转换时会提示 CC 未写入。
 - `ControllerTargets.N` 的 ID 在克隆子轨时会重映射；ClipEnvelope 指向重映射后的 ID。
 - Pitch Bend 使用 `ControllerTargets.0`，按 Live 的 -8192..8191（中心 0）写线性包络。
 - 已用 `luyou.als` 的 0→8191→0 PB Envelope 对照：target、sentinel、时间点和值范围一致。
 - 当前 **不写 Channel Pressure / Poly Pressure**（Aftertouch 按你的要求不做）。
-- Pitch Bend 只写在第一条 MIDI 子轨；其它子轨只带音符。
+- Pitch Bend 只写在一条 MIDI 子轨上；选择该通道里最长的有音符子轨，避免第一条源轨较短时后半段 PB 被截断。其它子轨只带音符。
 
 ### Group / 子轨克隆
 
@@ -149,7 +178,7 @@ Ableton 的 `Time` / `Duration` 使用四分音符 beat。PPQ 从 MIDI 头读取
 - Track Id、GroupTrack Id 重新分配。
 - `AutomationTarget`、`ModulationTarget`、`Pointee`、`ControllerTargets.*` 的全局 ID 以及 `PointeeId` 引用统一重映射。
 - `NextPointeeId` 推进到新 ID 之后。
-- 子轨 `AudioOutputRouting` 指向 `AudioOut/GroupTrack`。
+- `A01 Inst` 的 `AudioOutputRouting` 指向 `AudioOut/GroupTrack`；纯 MIDI 子轨没有乐器，音频输出不重要。
 - 原型 Group/子轨从输出中移除。
 - 子轨 ClipSlot 中原有 Clip 清空，只保留新生成的 Arrangement Clip。
 
@@ -176,20 +205,33 @@ Ableton 的 `Time` / `Duration` 使用四分音符 beat。PPQ 从 MIDI 头读取
 blacklive/
 ├── Cargo.toml
 ├── README.md
+├── assets/
+│   └── default.als         # 内置 A01 路由模板（Ac Piano Upright，干声）
 ├── src/
-│   ├── lib.rs              # 对外 API、数字格式化
+│   ├── lib.rs              # 对外 API、内置模板、数字格式化
 │   ├── midi.rs             # MIDI 解析、LIFO 配对、Tempo Map、CC 事件
-│   ├── als.rs              # gzip/XML、Group 克隆、ID 重映射、音符/CC/Tempo 注入
+│   ├── als.rs              # gzip/XML、Group 克隆、ID 重映射、音符/PB/Tempo 注入
 │   ├── convert.rs          # 通道分组、过滤/移调、转换编排
 │   └── bin/
 │       └── blacklive-gui.rs   # eframe/egui 0.37 桌面界面
 └── tests/
-    └── manual_group.rs     # 真实工程 Group 克隆手动集成测试
+    ├── embedded_template.rs   # 内置模板 + 纯钢琴多通道/空轨/PB 回归测试
+    ├── fixtures/pure_piano.mid
+    ├── fixtures/pb_longest_track.mid
+    └── manual_group.rs        # 真实工程 Group 克隆手动集成测试
 ```
 
 核心 API：
 
 ```rust
+// 默认：内置模板
+pub fn convert_midi_to_als_with_default_template(
+    midi_path: &Path,
+    output_path: &Path,
+    opts: &ConvertOptions,
+) -> Result<ConversionResult>;
+
+// 自定义模板
 pub fn convert_midi_to_als(
     midi_path: &Path,
     template_path: &Path,
@@ -200,6 +242,7 @@ pub fn convert_midi_to_als(
 
 ```rust
 pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
+pub fn inspect_default_template() -> Result<TemplateReport>;
 ```
 
 ---
@@ -242,27 +285,30 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 
 ## 8. 当前限制
 
+- 默认模板固定为 Live 12.3 + `Ac Piano Upright` + 干声；换音色/效果/版本需要自定义模板。
 - 路由 Group 需要 1 条乐器轨 + 1 条 MIDI 轨；旧式单轨 Group 仍兼容。
 - 可以按 `A01`、`A02`… 提供不同原型 Group；未提供的通道使用默认原型。
-- 只写 Pitch Bend 自动化；MIDI CC 暂时只解析/统计，不写入；Channel Pressure / Poly Pressure 未写入。
+- 只写 Pitch Bend 自动化；MIDI CC 暂时只解析/统计、不写入；Channel Pressure / Poly Pressure 未写入。
 - Pitch Bend 已按 `luyou.als` 的 `.0 / -8192..8191` 对照；仍建议在 Live 里试听一次。
 - Program Change 被忽略；不会按音色切换分轨。
 - MIDI Port 被忽略；只按 channel 分组。
-- 模板里其他 Group/轨道会保留，建议使用干净模板。
+- 自定义模板里其他 Group/轨道会保留，建议使用干净模板。
 - 有 MIDI 事件但无音符的源轨会保留为空 MIDI 轨；完全没有 MIDI 事件的 conductor/meta-only 轨不会建。
-- 当前用 `midly::Smf::parse` 一次性解析；1 万音符没问题，上亿音符需要复用 yinhe 的惰性解析。
+- 当前用 `midly::Smf::parse` 一次性解析；68 万音符可用，但峰值内存约 1.7 GB，上千万音符需要改惰性解析/流式 XML。
 - 尚未在 Live 内自动试听；需要你打开输出验证音色、力度、踏板和 Group 效果。
 
 ---
 
 ## 9. 已验证
 
+- 内置模板：A01 路由 Group、1 条 `Ac Piano Upright` 乐器轨 + 1 条 MIDI 轨、无音符占位 Clip、Group 干声、Return/Send 数量与模板一致。
+- 内置模板转换：纯钢琴多通道 / 多源轨 / 空轨保留 / meta-only 轨跳过，XML/gzip 与 ID 自检通过。
 - 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、全局 ID 重映射、Arrangement Clip 注入、MIDI 路由、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
 - 单通道 1,228 音符：输出约 184 KB `.als`。
-- 5.4 万音符黑乐谱、15 个通道组：路由模式下输出约 1.1 MB `.als`；A01 为 1 个钢琴实例 + 29 条 MIDI 子轨，所有 MIDI 子轨都路由到 `A01 Inst`。
+- 68 万音符黑 MIDI（5 MB 输入、15 个通道组）：release 下约 3.3 秒转换，输出约 4.2 MB `.als`，峰值内存约 1.7 GB。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
 - A01/A02 不同原型测试：A01 使用 Operator 链，A02 使用 Drift 链；输出正确按通道选择不同原型，ID 校验通过。
-- `cargo test`：7 个单元测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
+- `cargo test`：7 个单元测试 + 3 个内置模板集成测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
 
 手动集成测试：
 
@@ -275,16 +321,14 @@ cargo test --test manual_group -- --ignored --nocapture
 
 ---
 
-## 10. 需要你确认
+## 10. 下一步 / 待确认
 
-1. **模板**：请提供 `template.als`：一个 Group，命名 `A01`，里面恰好一条 Grand Piano MIDI 轨 + 一个占位 Clip。
-2. **通道/乐器**：如果不同通道要不同钢琴/乐器，请在模板里放 `A01`、`A02`… 各自的原型 Group；否则统一用默认原型。
-3. **Group 效果差异**：同名 `A01`/`A02` 原型 Group 可以带不同效果器/自动化；请按每通道 CC 报告给出映射。
-4. **Pitch Bend**：已按 `luyou.als` 的 `.0 / 0→8191→0` 对照；请在 Live 里试听一次。Aftertouch 按你的要求不做。
-5. **Program Change**：是否需要按 Program Change 切换音色/分轨？
-6. **同通道多轨**：默认每个源 MIDI 轨道一条子轨；是否保持？
-7. **Live 版本**：只自用 12.3，还是需要兼容 11/10？如果要兼容 10，请提供一个 Live 10 模板。
-8. **测试样本**：能否给一个 10–30 秒 MIDI + 期望 BPM/参考音频，用于 A/B 验证时值、力度、踏板和 Group 效果？
+1. **试听**：请在 Live 12.3 打开一个输出，确认音色、力度、Pitch Bend、Group 音量。
+2. **复音上限**：是否给 `Ac Piano Upright` 设置 voice stealing / 最大复音？当前未限制。
+3. **CC 映射**：CC 现在只统计不写入；下一步需要你给具体映射（例如 CC1 → 某参数、CC64 → 踏板、CC11 → 音量）。
+4. **每通道效果**：目前所有通道都用同一套 A01 原型、干声；如果需要 A02/A03 不同效果，再做对应原型 Group。
+5. **钢琴微调**：`Ac Piano Upright` 的 ADSR/音色如果还要改，直接替换 `assets/default.als` 即可，转换器代码不用动。
+6. **同通道多轨**：默认每个源 MIDI 轨道一条子轨；如果黑乐谱轨数过多，可以关闭「按源轨道拆分」合并。
 
 ---
 

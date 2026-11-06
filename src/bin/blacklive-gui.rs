@@ -4,7 +4,7 @@ use std::process::Command;
 use anyhow::{Context, Result};
 use blacklive::{
     ConversionResult, ConvertOptions, MidiStats, TemplateReport, convert_midi_to_als,
-    parse_channel_filter, parse_midi_file,
+    convert_midi_to_als_with_default_template, parse_channel_filter, parse_midi_file,
 };
 use eframe::egui::{self, Color32, RichText};
 
@@ -75,7 +75,7 @@ impl App {
             selected_clip: None,
             midi_stats: None,
             last_result: None,
-            status: "选择 MIDI 和模板".to_string(),
+            status: "选择一个 MIDI 文件".to_string(),
             status_is_error: false,
             log: Vec::new(),
         };
@@ -116,6 +116,7 @@ impl App {
             self.midi_stats = None;
             self.last_result = None;
             self.log(format!("选择 MIDI: {}", path.display()));
+            self.set_status("已选择 MIDI，可以导出 .als。");
         }
     }
 
@@ -131,6 +132,19 @@ impl App {
             self.log(format!("选择模板: {}", path.display()));
             self.analyze_template();
         }
+    }
+
+    fn template_is_builtin(&self) -> bool {
+        self.template_path.trim().is_empty()
+    }
+
+    fn clear_template(&mut self) {
+        self.template_path.clear();
+        self.template_report = None;
+        self.selected_clip = None;
+        self.last_result = None;
+        self.log("使用内置 Ac Piano Upright 模板");
+        self.set_status("已切回内置模板。");
     }
 
     fn choose_output(&mut self) {
@@ -150,14 +164,20 @@ impl App {
 
     fn analyze_template(&mut self) {
         let path = self.template_path.trim();
-        if path.is_empty() {
-            self.set_error("请先选择模板 .als");
-            return;
-        }
-        match blacklive::inspect_template(Path::new(path)) {
+        let report = if path.is_empty() {
+            blacklive::inspect_default_template()
+        } else {
+            blacklive::inspect_template(Path::new(path))
+        };
+        match report {
             Ok(report) => {
                 self.log(format!(
-                    "模板: Live {}，{} 条 MIDI 轨道，{} 个 Clip，BPM {}",
+                    "{}: Live {}，{} 条 MIDI 轨道，{} 个 Clip，BPM {}",
+                    if path.is_empty() {
+                        "内置模板"
+                    } else {
+                        "模板"
+                    },
                     report.minor_version,
                     report.tracks.len(),
                     report.clips.len(),
@@ -209,13 +229,8 @@ impl App {
 
     fn convert(&mut self) {
         let midi = PathBuf::from(self.midi_path.trim());
-        let template = PathBuf::from(self.template_path.trim());
         if midi.as_os_str().is_empty() {
             self.set_error("请先选择 MIDI");
-            return;
-        }
-        if template.as_os_str().is_empty() {
-            self.set_error("请先选择模板 .als");
             return;
         }
         let output = if self.output_path.trim().is_empty() {
@@ -243,7 +258,11 @@ impl App {
         };
 
         let options = ConvertOptions {
-            template_clip_index: self.selected_clip,
+            template_clip_index: if self.template_is_builtin() {
+                None
+            } else {
+                self.selected_clip
+            },
             template_clip_name: None,
             channels,
             include_drum_channel: self.include_drum_channel,
@@ -262,10 +281,21 @@ impl App {
         };
 
         self.set_status("正在转换…");
-        match convert_midi_to_als(&midi, &template, &output, &options) {
+        let converted = if self.template_is_builtin() {
+            convert_midi_to_als_with_default_template(&midi, &output, &options)
+        } else {
+            convert_midi_to_als(
+                &midi,
+                Path::new(self.template_path.trim()),
+                &output,
+                &options,
+            )
+        };
+        match converted {
             Ok(result) => {
                 self.log(format!(
-                    "✓ 输出 {}，写入 {} 音符，{} 组 / {} MIDI 轨，BPM {}，Clip {:.2} beats",
+                    "✓ 使用{}输出 {}，写入 {} 音符，{} 组 / {} MIDI 轨，BPM {}，Clip {:.2} beats",
+                    result.template_label,
                     result.output_path.display(),
                     result.used_note_count,
                     result.groups.len(),
@@ -306,6 +336,7 @@ impl App {
                     self.midi_stats = None;
                     self.last_result = None;
                     self.log(format!("拖入 MIDI: {}", path.display()));
+                    self.set_status("已选择 MIDI，可以导出 .als。");
                 }
                 Some("als") => {
                     self.template_path = path.display().to_string();
@@ -322,6 +353,7 @@ impl App {
 
     fn show_files(&mut self, ui: &mut egui::Ui) -> FileActions {
         let mut actions = FileActions::default();
+        let builtin_template = self.template_is_builtin();
 
         egui::Grid::new("files")
             .num_columns(3)
@@ -339,20 +371,35 @@ impl App {
                 }
                 ui.end_row();
 
-                ui.label("模板 .als");
-                let response = ui
-                    .add(egui::TextEdit::singleline(&mut self.template_path).desired_width(620.0));
-                if response.changed() {
-                    self.template_report = None;
-                    self.selected_clip = None;
-                    self.last_result = None;
-                }
+                ui.label("模板");
                 ui.horizontal(|ui| {
-                    if ui.button("选择…").clicked() {
-                        actions.choose_template = true;
-                    }
-                    if ui.button("分析模板").clicked() {
-                        actions.analyze_template = true;
+                    if builtin_template {
+                        ui.label("内置 Ac Piano Upright");
+                        if ui.button("使用自定义模板…").clicked() {
+                            actions.choose_template = true;
+                        }
+                        if ui.button("分析").clicked() {
+                            actions.analyze_template = true;
+                        }
+                    } else {
+                        let response = ui.add(
+                            egui::TextEdit::singleline(&mut self.template_path)
+                                .desired_width(480.0),
+                        );
+                        if response.changed() {
+                            self.template_report = None;
+                            self.selected_clip = None;
+                            self.last_result = None;
+                        }
+                        if ui.button("选择…").clicked() {
+                            actions.choose_template = true;
+                        }
+                        if ui.button("内置模板").clicked() {
+                            actions.clear_template = true;
+                        }
+                        if ui.button("分析").clicked() {
+                            actions.analyze_template = true;
+                        }
                     }
                 });
                 ui.end_row();
@@ -540,33 +587,6 @@ impl App {
             });
     }
 
-    fn show_actions(&mut self, ui: &mut egui::Ui) -> ActionFlags {
-        let mut flags = ActionFlags::default();
-        ui.add_space(6.0);
-        ui.horizontal(|ui| {
-            let can_convert =
-                !self.midi_path.trim().is_empty() && !self.template_path.trim().is_empty();
-            if ui
-                .add_enabled(
-                    can_convert,
-                    egui::Button::new(RichText::new("转换并生成 .als").strong()),
-                )
-                .clicked()
-            {
-                flags.convert = true;
-            }
-            if let Some(result) = &self.last_result {
-                if ui.button("在 Live 中打开").clicked() {
-                    flags.open_result = Some(result.output_path.clone());
-                }
-                if ui.button("打开所在文件夹").clicked() {
-                    flags.open_folder = Some(result.output_path.clone());
-                }
-            }
-        });
-        flags
-    }
-
     fn show_status(&mut self, ui: &mut egui::Ui) {
         ui.add_space(6.0);
         let color = if self.status_is_error {
@@ -631,7 +651,8 @@ impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.handle_dropped_files(ui.ctx());
 
-        let mut top_actions = FileActions::default();
+        let mut primary_files = FileActions::default();
+        let mut advanced_files = FileActions::default();
         let mut action_flags = ActionFlags::default();
 
         egui::CentralPanel::default().show(ui, |ui| {
@@ -642,31 +663,75 @@ impl eframe::App for App {
                 .id_salt("main_scroll")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    top_actions = self.show_files(ui);
-                    self.show_template(ui);
-                    self.show_midi_stats(ui);
-                    self.show_options(ui);
-                    action_flags = self.show_actions(ui);
+                    let can_export = !self.midi_path.trim().is_empty();
+                    ui.horizontal(|ui| {
+                        if ui.button("选择 MIDI…").clicked() {
+                            primary_files.choose_midi = true;
+                        }
+                        if ui
+                            .add_enabled(
+                                can_export,
+                                egui::Button::new(RichText::new("导出 .als").strong()),
+                            )
+                            .clicked()
+                        {
+                            action_flags.convert = true;
+                        }
+                        if let Some(result) = &self.last_result {
+                            if ui.button("在 Live 中打开").clicked() {
+                                action_flags.open_result = Some(result.output_path.clone());
+                            }
+                            if ui.button("打开所在文件夹").clicked() {
+                                action_flags.open_folder = Some(result.output_path.clone());
+                            }
+                        }
+                    });
+
+                    let midi = self.midi_path.trim();
+                    if midi.is_empty() {
+                        ui.label("未选择 MIDI");
+                    } else {
+                        ui.label(format!("MIDI  {midi}"));
+                        let output = if self.output_path.trim().is_empty() {
+                            PathBuf::from(midi).with_extension("als")
+                        } else {
+                            PathBuf::from(self.output_path.trim())
+                        };
+                        ui.label(format!("输出  {}", output.display()));
+                    }
+
                     self.show_status(ui);
+
+                    egui::CollapsingHeader::new("高级")
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            advanced_files = self.show_files(ui);
+                            self.show_template(ui);
+                            self.show_midi_stats(ui);
+                            self.show_options(ui);
+                        });
                 });
         });
 
-        if top_actions.choose_midi {
+        if primary_files.choose_midi || advanced_files.choose_midi {
             self.choose_midi();
         }
-        if top_actions.choose_template {
+        if advanced_files.choose_template {
             self.choose_template();
         }
-        if top_actions.choose_output {
+        if advanced_files.clear_template {
+            self.clear_template();
+        }
+        if advanced_files.choose_output {
             self.choose_output();
         }
-        if top_actions.analyze_template {
+        if advanced_files.analyze_template {
             self.analyze_template();
         }
-        if top_actions.analyze_midi {
+        if advanced_files.analyze_midi {
             self.analyze_midi();
         }
-        if top_actions.dump_xml {
+        if advanced_files.dump_xml {
             self.dump_xml();
         }
         if action_flags.convert {
@@ -687,16 +752,17 @@ impl eframe::App for App {
 
 impl App {
     fn dump_xml(&mut self) {
+        let builtin = self.template_is_builtin();
         let template = self.template_path.trim();
-        if template.is_empty() {
-            self.set_error("请先选择模板 .als");
-            return;
-        }
-        let default_name = Path::new(template)
-            .with_extension("xml")
-            .file_name()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| "template.xml".into());
+        let default_name = if builtin {
+            "default-template.xml".to_string()
+        } else {
+            Path::new(template)
+                .with_extension("xml")
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "template.xml".into())
+        };
         let Some(output) = rfd::FileDialog::new()
             .add_filter("XML", &["xml"])
             .set_file_name(default_name)
@@ -704,7 +770,12 @@ impl App {
         else {
             return;
         };
-        match blacklive::als::dump_template_xml(Path::new(template), &output) {
+        let result = if builtin {
+            blacklive::dump_default_template_xml(&output)
+        } else {
+            blacklive::als::dump_template_xml(Path::new(template), &output)
+        };
+        match result {
             Ok(()) => {
                 self.log(format!("导出模板 XML: {}", output.display()));
                 self.set_status(format!("已导出 XML：{}", output.display()));
@@ -718,6 +789,7 @@ impl App {
 struct FileActions {
     choose_midi: bool,
     choose_template: bool,
+    clear_template: bool,
     choose_output: bool,
     analyze_template: bool,
     analyze_midi: bool,

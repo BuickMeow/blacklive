@@ -83,7 +83,7 @@ pub struct GroupResult {
 #[derive(Clone, Debug)]
 pub struct ConversionResult {
     pub output_path: PathBuf,
-    pub template_path: PathBuf,
+    pub template_label: String,
     pub midi_path: PathBuf,
     pub template_clip: String,
     pub bpm: f64,
@@ -101,6 +101,30 @@ pub struct ConversionResult {
     pub warnings: Vec<String>,
 }
 
+enum TemplateSource<'a> {
+    File(&'a Path),
+    Embedded,
+}
+
+impl TemplateSource<'_> {
+    fn path(&self) -> Option<&Path> {
+        match self {
+            Self::File(path) => Some(path),
+            Self::Embedded => None,
+        }
+    }
+
+    fn load(&self) -> Result<(String, Vec<u8>)> {
+        match self {
+            Self::File(path) => Ok((path.display().to_string(), als::read_als_xml(path)?)),
+            Self::Embedded => Ok((
+                crate::DEFAULT_TEMPLATE_LABEL.to_string(),
+                als::read_als_bytes(crate::DEFAULT_TEMPLATE_BYTES, crate::DEFAULT_TEMPLATE_LABEL)?,
+            )),
+        }
+    }
+}
+
 /// Run the complete MIDI -> template injection -> `.als` pipeline.
 pub fn convert_midi_to_als(
     midi_path: &Path,
@@ -108,10 +132,34 @@ pub fn convert_midi_to_als(
     output_path: &Path,
     opts: &ConvertOptions,
 ) -> Result<ConversionResult> {
-    ensure_distinct_paths(midi_path, template_path, output_path)?;
+    convert_midi_with_template(
+        midi_path,
+        TemplateSource::File(template_path),
+        output_path,
+        opts,
+    )
+}
+
+/// Convert with the built-in Ac Piano Upright template, so callers do not have
+/// to ship or select a separate `.als` file.
+pub fn convert_midi_to_als_with_default_template(
+    midi_path: &Path,
+    output_path: &Path,
+    opts: &ConvertOptions,
+) -> Result<ConversionResult> {
+    convert_midi_with_template(midi_path, TemplateSource::Embedded, output_path, opts)
+}
+
+fn convert_midi_with_template(
+    midi_path: &Path,
+    template: TemplateSource<'_>,
+    output_path: &Path,
+    opts: &ConvertOptions,
+) -> Result<ConversionResult> {
+    ensure_distinct_paths(midi_path, template.path(), output_path)?;
 
     let parsed = parse_midi_file(midi_path)?;
-    let template_xml = als::read_als_xml(template_path)?;
+    let (template_label, template_xml) = template.load()?;
     let mut root = als::parse_xml(&template_xml)?;
     let clips = als::enumerate_clips(&root)?;
     let selected = als::select_clip(
@@ -133,6 +181,20 @@ pub fn convert_midi_to_als(
         .unwrap_or_else(|| "MIDI".to_string());
 
     let mut warnings = parsed.stats.warnings.clone();
+    if !opts.write_cc_automation {
+        let cc_events: usize = parsed
+            .stats
+            .controllers
+            .values()
+            .flat_map(|controllers| controllers.values())
+            .map(Vec::len)
+            .sum();
+        if cc_events > 0 {
+            warnings.push(format!(
+                "MIDI 含 {cc_events} 个 CC 事件；当前未写入 CC 自动化（CC→效果映射待实现）。"
+            ));
+        }
+    }
     if let Some(bpm) = opts.bpm_override {
         warnings.retain(|warning| !warning.contains("有效变速点"));
         if parsed.stats.tempo_map.len() > 1 {
@@ -367,7 +429,7 @@ pub fn convert_midi_to_als(
 
     Ok(ConversionResult {
         output_path: output_path.to_path_buf(),
-        template_path: template_path.to_path_buf(),
+        template_label,
         midi_path: midi_path.to_path_buf(),
         template_clip: selected.info.display_label(),
         bpm,
@@ -590,19 +652,21 @@ fn parse_channel(s: &str) -> Result<u8> {
     Ok(ch)
 }
 
-fn ensure_distinct_paths(midi: &Path, template: &Path, output: &Path) -> Result<()> {
-    if output == template {
-        bail!("输出文件不能覆盖模板 .als");
+fn ensure_distinct_paths(midi: &Path, template: Option<&Path>, output: &Path) -> Result<()> {
+    if let Some(template) = template {
+        if output == template {
+            bail!("输出文件不能覆盖模板 .als");
+        }
+        if let (Ok(a), Ok(b)) = (
+            std::fs::canonicalize(output),
+            std::fs::canonicalize(template),
+        ) && a == b
+        {
+            bail!("输出文件不能覆盖模板 .als");
+        }
     }
     if output == midi {
         bail!("输出文件不能覆盖输入 MIDI");
-    }
-    if let (Ok(a), Ok(b)) = (
-        std::fs::canonicalize(output),
-        std::fs::canonicalize(template),
-    ) && a == b
-    {
-        bail!("输出文件不能覆盖模板 .als");
     }
     if let (Ok(a), Ok(b)) = (std::fs::canonicalize(output), std::fs::canonicalize(midi))
         && a == b

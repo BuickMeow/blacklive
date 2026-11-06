@@ -195,27 +195,41 @@ pub(crate) struct InjectionInfo {
 /// a hand-extracted template easier.
 pub fn read_als_xml(path: &Path) -> Result<Vec<u8>> {
     let raw = std::fs::read(path).with_context(|| format!("读取 .als 失败: {}", path.display()))?;
+    read_als_bytes(&raw, &path.display().to_string())
+}
+
+/// Decompress an `.als` byte slice. Plain XML is accepted for debugging.
+pub fn read_als_bytes(raw: &[u8], label: &str) -> Result<Vec<u8>> {
     if raw.starts_with(&[0x1f, 0x8b]) {
-        let mut decoder = MultiGzDecoder::new(raw.as_slice());
+        let mut decoder = MultiGzDecoder::new(raw);
         let mut xml = Vec::new();
         decoder
             .read_to_end(&mut xml)
-            .with_context(|| format!("解压 gzip 失败: {}", path.display()))?;
+            .with_context(|| format!("解压 gzip 失败: {label}"))?;
         if xml.is_empty() {
-            bail!(".als 解压后是空文件: {}", path.display());
+            bail!(".als 解压后是空文件: {label}");
         }
         Ok(xml)
     } else {
         if raw.is_empty() {
-            bail!(".als 是空文件: {}", path.display());
+            bail!(".als 是空文件: {label}");
         }
-        Ok(raw)
+        Ok(raw.to_vec())
     }
 }
 
 /// Write the decompressed XML next to the user for manual inspection.
 pub fn dump_template_xml(template: &Path, output: &Path) -> Result<()> {
     let xml = read_als_xml(template)?;
+    write_xml_file(output, &xml)
+}
+
+pub fn dump_als_bytes_xml(label: &str, raw: &[u8], output: &Path) -> Result<()> {
+    let xml = read_als_bytes(raw, label)?;
+    write_xml_file(output, &xml)
+}
+
+fn write_xml_file(output: &Path, xml: &[u8]) -> Result<()> {
     if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -228,6 +242,13 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport> {
     let root = parse_xml(&xml)?;
     let clips = enumerate_clips(&root)?;
     build_report(path, &root, &clips)
+}
+
+pub fn inspect_template_bytes(label: &str, raw: &[u8]) -> Result<TemplateReport> {
+    let xml = read_als_bytes(raw, label)?;
+    let root = parse_xml(&xml)?;
+    let clips = enumerate_clips(&root)?;
+    build_report(Path::new(label), &root, &clips)
 }
 
 #[inline]
@@ -1116,6 +1137,17 @@ pub(crate) fn inject_groups(
                 strip_midi_clips(&mut new_instrument);
                 new_tracks.push(XMLNode::Element(new_instrument));
 
+                // Put channel-wide automation on the longest clip so PB/CC
+                // events near the end of the channel are not cut off when the
+                // first source track is shorter. Empty tracks still stay empty.
+                let automation_child = group
+                    .children
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, child)| !child.notes.is_empty())
+                    .max_by(|(_, a), (_, b)| a.clip_length_beats.total_cmp(&b.clip_length_beats))
+                    .map(|(index, _)| index);
+
                 for (index, child) in group.children.iter().enumerate() {
                     let new_midi_id = next_track_id;
                     next_track_id += 1;
@@ -1157,8 +1189,10 @@ pub(crate) fn inject_groups(
                     )?;
                     clear_clip_envelopes(new_clip);
                     // All MIDI tracks feed the same instrument. Put channel-wide
-                    // CC/Pitch Bend automation on the first MIDI track only.
-                    if req.write_pitch_bend && index == 0 {
+                    // CC/Pitch Bend automation on one clip only.
+                    if automation_child == Some(index)
+                        && (req.write_cc_automation || req.write_pitch_bend)
+                    {
                         add_midi_automation(
                             new_clip,
                             group.channel,
