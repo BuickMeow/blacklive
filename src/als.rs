@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::io::{Cursor, Read, Write};
 use std::path::{Path, PathBuf};
@@ -7,7 +8,7 @@ use flate2::read::MultiGzDecoder;
 use flate2::{Compression, GzBuilder};
 use xmltree::{Element, EmitterConfig, XMLNode};
 
-use crate::midi::Note;
+use crate::midi::{ControllerEvent, Note};
 
 const INSTRUMENT_TAGS: &[&str] = &[
     "InstrumentGroupDevice",
@@ -44,12 +45,33 @@ impl fmt::Display for ClipLocation {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrackKind {
+    Midi,
+    Group,
+    Return,
+    Other,
+}
+
+impl fmt::Display for TrackKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Midi => f.write_str("MIDI"),
+            Self::Group => f.write_str("Group"),
+            Self::Return => f.write_str("Return"),
+            Self::Other => f.write_str("Other"),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ClipInfo {
     /// Index in `TemplateReport::clips`, stable for the same template.
     pub candidate_index: usize,
     pub track_index: usize,
     pub track_name: String,
+    pub group_id: Option<u32>,
+    pub group_name: Option<String>,
     pub location: ClipLocation,
     pub name: String,
     pub time: f64,
@@ -73,8 +95,14 @@ impl ClipInfo {
     }
 
     pub fn display_label(&self) -> String {
+        let group = self
+            .group_name
+            .as_ref()
+            .map(|name| format!("Group「{name}」/ "))
+            .unwrap_or_default();
         format!(
-            "{} / 轨道「{}」/ Clip「{}」（{} 音符, {} beats）",
+            "{}{} / 轨道「{}」/ Clip「{}」（{} 音符, {} beats）",
+            group,
             self.location,
             self.track_name,
             self.name,
@@ -88,6 +116,9 @@ impl ClipInfo {
 pub struct TrackInfo {
     pub index: usize,
     pub name: String,
+    pub kind: TrackKind,
+    pub group_id: Option<u32>,
+    pub group_name: Option<String>,
     pub devices: Vec<String>,
     pub has_instrument: bool,
 }
@@ -113,27 +144,40 @@ pub(crate) struct RawClip {
     pub track_element_index: usize,
     /// Raw child indices from the track element to the `<MidiClip>`.
     pub clip_path: Vec<usize>,
+    pub group_id: Option<u32>,
+    pub group_element_index: Option<usize>,
 }
 
-pub(crate) struct InjectRequest<'a> {
-    pub notes: &'a [Note],
+pub(crate) struct ChildPlan {
+    pub source_track: u16,
+    pub track_name: String,
+    pub clip_name: String,
+    pub notes: Vec<Note>,
     pub clip_length_beats: f64,
+}
+
+pub(crate) struct GroupPlan {
+    pub channel: u8,
+    pub group_name: String,
+    pub children: Vec<ChildPlan>,
+}
+
+pub(crate) struct GroupInjectRequest<'a> {
+    pub groups: &'a [GroupPlan],
     pub clip_start_beats: f64,
     pub bpm: f64,
-    pub clip_name: &'a str,
-    pub track_name: Option<&'a str>,
     pub time_signature: Option<(u8, u16)>,
     /// (arrangement beat, BPM) pairs. `None` writes a constant tempo only.
     pub tempo_map: Option<&'a [(f64, f64)]>,
+    /// channel -> controller number -> absolute-tick events.
+    pub controllers: &'a BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
+    pub ppq: u16,
+    pub write_cc_automation: bool,
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct InjectionInfo {
-    pub arrangement_created: bool,
-    pub template_label: String,
     pub tempo_automation_written: bool,
-    #[allow(dead_code)]
-    pub notes_in_clip: usize,
     pub warnings: Vec<String>,
 }
 
@@ -228,24 +272,49 @@ pub(crate) fn enumerate_clips(root: &Element) -> Result<Vec<RawClip>> {
         .get_child("Tracks")
         .context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
 
+    let mut group_names: HashMap<u32, String> = HashMap::new();
+    let mut group_element_indices: HashMap<u32, usize> = HashMap::new();
+    for (element_index, node) in tracks.children.iter().enumerate() {
+        let Some(track) = node.as_element() else {
+            continue;
+        };
+        if track_kind(track) == TrackKind::Group
+            && let Some(id) = track_id(track)
+        {
+            group_names.insert(id, track_name(track));
+            group_element_indices.insert(id, element_index);
+        }
+    }
+
     let mut clips = Vec::new();
-    let mut midi_track_index = 0usize;
+    let mut track_index = 0usize;
     for (track_element_index, node) in tracks.children.iter().enumerate() {
         let Some(track) = node.as_element() else {
             continue;
         };
-        if track.name != "MidiTrack" {
+        let kind = track_kind(track);
+        if kind == TrackKind::Other {
+            continue;
+        }
+        let current_track_index = track_index;
+        track_index += 1;
+
+        if kind != TrackKind::Midi {
             continue;
         }
         let track_name = track_name(track);
-        let track_index = midi_track_index;
-        midi_track_index += 1;
+        let group_id = track_group_id(track);
+        let group_name = group_id.and_then(|id| group_names.get(&id).cloned());
+        let group_element_index = group_id.and_then(|id| group_element_indices.get(&id).copied());
 
         walk_clips(
             track,
             track_element_index,
-            track_index,
+            current_track_index,
             &track_name,
+            group_id,
+            group_name.as_deref(),
+            group_element_index,
             &mut Vec::new(),
             ClipContext::Other,
             &mut clips,
@@ -286,6 +355,9 @@ fn walk_clips(
     track_element_index: usize,
     track_index: usize,
     track_name: &str,
+    group_id: Option<u32>,
+    group_name: Option<&str>,
+    group_element_index: Option<usize>,
     path: &mut Vec<usize>,
     context: ClipContext,
     out: &mut Vec<RawClip>,
@@ -309,10 +381,15 @@ fn walk_clips(
             if let Some(location) = location {
                 let mut clip_path = path.clone();
                 clip_path.push(i);
+                let mut info = clip_info(child, location, track_index, track_name, 0);
+                info.group_id = group_id;
+                info.group_name = group_name.map(str::to_string);
                 out.push(RawClip {
-                    info: clip_info(child, location, track_index, track_name, 0),
+                    info,
                     track_element_index,
                     clip_path,
+                    group_id,
+                    group_element_index,
                 });
             }
             continue;
@@ -324,6 +401,9 @@ fn walk_clips(
             track_element_index,
             track_index,
             track_name,
+            group_id,
+            group_name,
+            group_element_index,
             path,
             child_context,
             out,
@@ -353,6 +433,8 @@ fn clip_info(
         candidate_index,
         track_index,
         track_name: track_name.to_string(),
+        group_id: None,
+        group_name: None,
         location,
         name: clip
             .get_child("Name")
@@ -376,78 +458,111 @@ fn build_report(path: &Path, root: &Element, clips: &[RawClip]) -> Result<Templa
         .get_child("Tracks")
         .context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
 
-    let mut tracks = Vec::new();
-    let mut midi_track_index = 0usize;
-    let mut non_midi_tracks = 0usize;
+    let mut group_names: HashMap<u32, String> = HashMap::new();
     for node in &tracks_el.children {
         let Some(track) = node.as_element() else {
             continue;
         };
-        if track.name != "MidiTrack" {
-            non_midi_tracks += 1;
+        if track_kind(track) == TrackKind::Group
+            && let Some(id) = track_id(track)
+        {
+            group_names.insert(id, track_name(track));
+        }
+    }
+
+    let mut tracks = Vec::new();
+    let mut track_index = 0usize;
+    let mut midi_track_count = 0usize;
+    let mut group_count = 0usize;
+    for node in &tracks_el.children {
+        let Some(track) = node.as_element() else {
+            continue;
+        };
+        let kind = track_kind(track);
+        if kind == TrackKind::Other {
             continue;
         }
+        let group_id = track_group_id(track);
+        let group_name = group_id.and_then(|id| group_names.get(&id).cloned());
         let (devices, has_instrument) = track_devices(track);
         tracks.push(TrackInfo {
-            index: midi_track_index,
+            index: track_index,
             name: track_name(track),
+            kind,
+            group_id,
+            group_name,
             devices,
             has_instrument,
         });
-        midi_track_index += 1;
+        match kind {
+            TrackKind::Midi => midi_track_count += 1,
+            TrackKind::Group => group_count += 1,
+            TrackKind::Return | TrackKind::Other => {}
+        }
+        track_index += 1;
     }
 
     let bpm = read_tempo(live_set);
     let recommended_clip = clips
         .iter()
-        .position(|c| c.info.location == ClipLocation::Arrangement)
+        .position(|c| c.info.group_id.is_some() && c.info.location == ClipLocation::Arrangement)
+        .or_else(|| clips.iter().position(|c| c.info.group_id.is_some()))
+        .or_else(|| {
+            clips
+                .iter()
+                .position(|c| c.info.location == ClipLocation::Arrangement)
+        })
         .or(if clips.is_empty() { None } else { Some(0) });
 
     let mut warnings = Vec::new();
-    if tracks.is_empty() {
-        warnings.push("模板里没有 MIDI 轨道。请创建一条加载 Grand Piano 的 MIDI 轨道。".into());
-    } else if tracks.len() > 1 {
+    if midi_track_count == 0 {
+        warnings.push("模板里没有 MIDI 轨道。".into());
+    }
+    if group_count == 0 {
+        warnings.push(
+            "模板没有 Group。请创建一个 Group（例如 A01），把加载 Grand Piano 的 MIDI 轨道和占位 Clip 放进这个 Group。"
+                .into(),
+        );
+    } else if group_count > 1 {
         warnings.push(format!(
-            "模板有 {} 条 MIDI 轨道；转换器只会修改所选 Clip 所在的轨道，其他轨道会原样保留。",
-            tracks.len()
+            "模板有 {} 个 Group；转换器只会克隆所选 Clip 所在的 Group。",
+            group_count
         ));
     }
     if clips.is_empty() {
-        warnings.push("模板里没有 MidiClip。请在目标轨道上放一个短的占位 Clip 并保存。".into());
+        warnings.push("模板里没有 MidiClip。".into());
     } else if clips.len() > 1 {
         warnings.push(format!(
-            "模板有 {} 个 MIDI Clip；建议使用只含一个 Clip 的干净模板，或准确选择要替换的 Clip。",
+            "模板有 {} 个 MIDI Clip；转换器使用所选 Clip 所在的 Group 作为原型。",
             clips.len()
-        ));
-    }
-    if !clips.is_empty()
-        && !clips
-            .iter()
-            .any(|c| c.info.location == ClipLocation::Arrangement)
-    {
-        warnings.push(
-            "模板没有 Arrangement Clip；转换器会把所选 Session Clip 克隆到 Arrangement，打开工程后按空格即可播放。"
-                .into(),
-        );
-    }
-    if non_midi_tracks > 0 {
-        warnings.push(format!(
-            "模板还包含 {} 条非 MIDI 轨道（音频/Return/Master 等），它们会原样保留。",
-            non_midi_tracks
         ));
     }
     if let Some(recommended) = recommended_clip {
         let clip = &clips[recommended];
+        if clip.info.group_id.is_none() {
+            warnings.push(
+                "所选 Clip 不在 Group 内；当前版本按通道分组，需要把占位 Clip 放进 Group。".into(),
+            );
+        }
         if let Some(track) = tracks.iter().find(|t| t.index == clip.info.track_index) {
             if !track.has_instrument {
-                warnings.push(format!(
-                    "目标轨道「{}」未检测到乐器设备。请确认它加载的是 Grand Piano。",
-                    track.name
-                ));
+                warnings.push(format!("目标轨道「{}」未检测到乐器设备。", track.name));
             } else if !looks_like_grand_piano(&track.name, &track.devices) {
                 warnings.push(format!(
-                    "目标轨道「{}」没有检测到名为 Grand Piano 的设备；如果模板用的是其他音色，输出会使用它。",
+                    "目标轨道「{}」没有检测到名为 Grand Piano 的设备；输出会使用模板里的音色。",
                     track.name
+                ));
+            }
+        }
+        if let Some(group_id) = clip.info.group_id {
+            let child_count = tracks
+                .iter()
+                .filter(|t| t.kind == TrackKind::Midi && t.group_id == Some(group_id))
+                .count();
+            if child_count != 1 {
+                warnings.push(format!(
+                    "原型 Group 里有 {} 条 MIDI 轨道；转换器需要恰好一条 MIDI 轨道作为子轨原型。",
+                    child_count
                 ));
             }
         }
@@ -516,6 +631,15 @@ pub(crate) fn select_clip<'a>(
 
     if let Some(clip) = clips
         .iter()
+        .find(|c| c.group_id.is_some() && c.info.location == ClipLocation::Arrangement)
+    {
+        return Ok(clip);
+    }
+    if let Some(clip) = clips.iter().find(|c| c.group_id.is_some()) {
+        return Ok(clip);
+    }
+    if let Some(clip) = clips
+        .iter()
         .find(|c| c.info.location == ClipLocation::Arrangement)
     {
         return Ok(clip);
@@ -536,13 +660,13 @@ fn clip_name_list(clips: &[RawClip]) -> String {
         .join(", ")
 }
 
-pub(crate) fn inject_notes(
+pub(crate) fn inject_groups(
     root: &mut Element,
-    clip: &RawClip,
-    req: InjectRequest<'_>,
+    prototype: &RawClip,
+    req: GroupInjectRequest<'_>,
 ) -> Result<InjectionInfo> {
-    if !req.clip_length_beats.is_finite() || req.clip_length_beats <= 0.0 {
-        bail!("内部错误：Clip 长度必须是正数");
+    if req.groups.is_empty() {
+        bail!("没有可写入的通道分组");
     }
     if !req.clip_start_beats.is_finite() || req.clip_start_beats < 0.0 {
         bail!("内部错误：Clip 起点必须是非负数");
@@ -550,149 +674,366 @@ pub(crate) fn inject_notes(
     if !req.bpm.is_finite() || req.bpm <= 0.0 {
         bail!("内部错误：BPM 必须是正数");
     }
+    for group in req.groups {
+        for child in &group.children {
+            if !child.clip_length_beats.is_finite() || child.clip_length_beats <= 0.0 {
+                bail!("内部错误：Clip 长度必须是正数");
+            }
+        }
+    }
+
+    let group_id = prototype
+        .group_id
+        .context("所选 Clip 不在 Group 内；需要把原型 Clip 放进 Group")?;
+    let group_element_index = prototype
+        .group_element_index
+        .context("找不到原型 Clip 所在的 Group")?;
 
     let mut warnings = Vec::new();
     let live_set = live_set_mut(root).context("模板里找不到 <LiveSet> 节点")?;
-
     let tempo_automation_written = set_tempo(live_set, req.bpm, req.tempo_map, &mut warnings);
-    let tracks = child_mut(live_set, "Tracks").context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
-    let track = mutate_navigate(tracks, &[clip.track_element_index])
-        .context("无法定位模板中的目标 MIDI 轨道")?;
-    let display_track_name = req
-        .track_name
-        .map(str::to_string)
-        .unwrap_or_else(|| clip.info.track_name.clone());
+    let mut pointee_allocator = PointeeAllocator::new(live_set);
 
-    let (devices, has_instrument) = track_devices(track);
+    let (prototype_group, prototype_child, clip_template) = {
+        let tracks = live_set
+            .get_child("Tracks")
+            .context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
+        let group_el = tracks
+            .children
+            .get(group_element_index)
+            .and_then(XMLNode::as_element)
+            .context("无法定位原型 Group")?;
+        if track_kind(group_el) != TrackKind::Group {
+            bail!("所选 Clip 的 TrackGroupId 指向的不是 GroupTrack");
+        }
+        let child_el = tracks
+            .children
+            .get(prototype.track_element_index)
+            .and_then(XMLNode::as_element)
+            .context("无法定位原型 MIDI 轨道")?;
+        if track_kind(child_el) != TrackKind::Midi {
+            bail!("原型 Clip 不在 MIDI 轨道上");
+        }
+        let child_ids: Vec<u32> = tracks
+            .children
+            .iter()
+            .filter_map(XMLNode::as_element)
+            .filter(|track| track_kind(track) == TrackKind::Midi)
+            .filter(|track| track_group_id(track) == Some(group_id))
+            .filter_map(track_id)
+            .collect();
+        if child_ids.len() != 1 {
+            bail!(
+                "原型 Group 里必须恰好有一条 MIDI 轨道作为子轨原型，当前有 {} 条。",
+                child_ids.len()
+            );
+        }
+        let clip = navigate(child_el, &prototype.clip_path).context("无法定位原型 Clip 的 XML")?;
+        (group_el.clone(), child_el.clone(), clip.clone())
+    };
+
+    let (devices, has_instrument) = track_devices(&prototype_child);
+    let prototype_track_name = track_name(&prototype_child);
     if !has_instrument {
         warnings.push(format!(
-            "目标轨道「{}」没有检测到乐器设备（设备：{}）。请确认模板加载了 Grand Piano。",
-            display_track_name,
+            "原型 MIDI 轨道「{}」没有检测到乐器设备（设备：{}）。",
+            prototype_track_name,
             if devices.is_empty() {
                 "无".to_string()
             } else {
                 devices.join(", ")
             }
         ));
-    } else if !looks_like_grand_piano(&display_track_name, &devices) {
+    } else if !looks_like_grand_piano(&prototype_track_name, &devices) {
         warnings.push(format!(
-            "目标轨道「{}」没有检测到名为 Grand Piano 的设备（设备：{}）；输出会使用模板里的音色。",
-            display_track_name,
+            "原型 MIDI 轨道「{}」没有检测到名为 Grand Piano 的设备（设备：{}）；输出会使用模板里的音色。",
+            prototype_track_name,
             devices.join(", ")
         ));
     }
 
-    if clip.info.location == ClipLocation::Session
-        && track_has_clip_in_context(track, ClipContext::Arrangement)
-    {
-        bail!(
-            "所选 Clip 在 Session，但同一轨道已经有 Arrangement Clip。\
-             这样会生成两个同时播放的 Clip。请选 Arrangement 里的占位 Clip，\
-             或删掉 Arrangement Clip 后重新保存模板。"
-        );
-    }
+    let write_note_ids = clip_template
+        .get_child("Notes")
+        .and_then(|notes| notes.get_child("NoteIdGenerator"))
+        .is_some();
 
-    if let Some(track_name) = req.track_name {
-        set_track_name(track, track_name);
-    }
-
-    {
-        let clip_el =
-            mutate_navigate(track, &clip.clip_path).context("无法定位模板中的目标 MidiClip")?;
-        edit_clip(
-            clip_el,
-            clip.info.location == ClipLocation::Arrangement,
-            &req,
-        )?;
-    }
-
-    let mut arrangement_created = false;
-    if clip.info.location == ClipLocation::Session {
-        let source = navigate(track, &clip.clip_path)
-            .context("克隆前定位 Session Clip 失败")?
-            .clone();
-        let events = ensure_arranger_events(track)?;
-        let new_index = events.children.len();
-        events.children.push(XMLNode::Element(source));
-        let new_clip = events.children[new_index]
-            .as_mut_element()
-            .context("克隆 Arrangement Clip 失败")?;
-
-        // The Session clip uses clip-relative current start/end. The Arrangement
-        // clone must use arrangement timeline coordinates instead.
-        set_attr(new_clip, "Time", &crate::format_num(req.clip_start_beats));
-        set_child_value(
-            new_clip,
-            "CurrentStart",
-            &crate::format_num(req.clip_start_beats),
-        );
-        set_child_value(
-            new_clip,
-            "CurrentEnd",
-            &crate::format_num(req.clip_start_beats + req.clip_length_beats),
-        );
-        arrangement_created = true;
-        warnings.push(
-            "模板 Clip 位于 Session；已同时写入 Arrangement，打开工程后按空格即可播放。".into(),
-        );
-    } else if track_has_clip_in_context(track, ClipContext::Session) {
-        warnings.push(
-            "目标轨道还保留着 Session Clip（占位音符未修改）。输出工程使用 Arrangement 播放；\
-             如果也会从 Session 启动，请先检查那个 Clip。"
-                .into(),
-        );
-    }
-
-    let target_clip = if arrangement_created {
-        find_descendant(track, "ArrangerAutomation")
-            .and_then(|a| a.get_child("Events"))
-            .and_then(|events| {
-                events
-                    .children
-                    .iter()
-                    .filter_map(XMLNode::as_element)
-                    .rev()
-                    .find(|e| e.name == "MidiClip")
-            })
-            .context("写入后找不到新的 Arrangement Clip")?
-    } else {
-        navigate(track, &clip.clip_path).context("写入后找不到目标 Clip")?
+    let mut next_track_id = {
+        let tracks = live_set
+            .get_child("Tracks")
+            .context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
+        max_track_id(tracks) + 1
     };
 
-    let notes_in_clip = count_descendants(target_clip, "MidiNoteEvent");
-    if notes_in_clip != req.notes.len() {
-        bail!(
-            "内部校验失败：写入了 {} 个音符，但 Clip 中读到 {} 个",
-            req.notes.len(),
-            notes_in_clip
-        );
+    let mut new_tracks: Vec<XMLNode> = Vec::new();
+
+    for group in req.groups {
+        if group.children.is_empty() {
+            continue;
+        }
+
+        let new_group_id = next_track_id;
+        next_track_id += 1;
+        let mut new_group = prototype_group.clone();
+        remap_pointee_ids(&mut new_group, &mut pointee_allocator);
+        set_attr(&mut new_group, "Id", &new_group_id.to_string());
+        set_track_name(&mut new_group, &group.group_name);
+        set_track_group_id(&mut new_group, -1);
+        set_linked_track_group_id(&mut new_group, -1);
+        set_track_unfolded(&mut new_group, true);
+        new_tracks.push(XMLNode::Element(new_group));
+
+        for child in &group.children {
+            let new_child_id = next_track_id;
+            next_track_id += 1;
+
+            let mut new_child = prototype_child.clone();
+            remap_pointee_ids(&mut new_child, &mut pointee_allocator);
+            set_attr(&mut new_child, "Id", &new_child_id.to_string());
+            set_track_name(&mut new_child, &child.track_name);
+            set_track_group_id(&mut new_child, new_group_id as i64);
+            set_linked_track_group_id(&mut new_child, -1);
+            set_track_unfolded(&mut new_child, true);
+
+            let targets = controller_targets(&new_child);
+            strip_midi_clips(&mut new_child);
+            let events = ensure_arranger_events(&mut new_child)?;
+            events
+                .children
+                .push(XMLNode::Element(clip_template.clone()));
+            let new_clip = events
+                .children
+                .last_mut()
+                .and_then(XMLNode::as_mut_element)
+                .context("写入 Arrangement Clip 失败")?;
+
+            edit_clip(
+                new_clip,
+                req.clip_start_beats,
+                child.clip_length_beats,
+                &child.clip_name,
+                req.time_signature,
+                &child.notes,
+                write_note_ids,
+            )?;
+            clear_clip_envelopes(new_clip);
+            if req.write_cc_automation {
+                add_cc_envelopes(
+                    new_clip,
+                    group.channel,
+                    req.controllers,
+                    &targets,
+                    req.ppq,
+                    child.clip_length_beats,
+                    &mut warnings,
+                )?;
+            }
+
+            let notes_in_clip = count_descendants(new_clip, "MidiNoteEvent");
+            if notes_in_clip != child.notes.len() {
+                bail!(
+                    "内部校验失败：通道 A{:02} 轨道「{}」写入 {} 个音符，但 Clip 中读到 {} 个",
+                    group.channel + 1,
+                    child.track_name,
+                    child.notes.len(),
+                    notes_in_clip
+                );
+            }
+
+            new_tracks.push(XMLNode::Element(new_child));
+        }
     }
 
+    {
+        let tracks =
+            child_mut(live_set, "Tracks").context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
+        let mut remove_ids: HashSet<u32> = HashSet::new();
+        remove_ids.insert(group_id);
+        for track in tracks.children.iter().filter_map(XMLNode::as_element) {
+            if track_group_id(track) == Some(group_id)
+                && let Some(id) = track_id(track)
+            {
+                remove_ids.insert(id);
+            }
+        }
+
+        let insert_at = group_element_index;
+        let old_children = std::mem::take(&mut tracks.children);
+        let mut new_children = Vec::with_capacity(old_children.len() + new_tracks.len());
+        let mut inserted = false;
+        for (index, node) in old_children.into_iter().enumerate() {
+            if index == insert_at {
+                new_children.append(&mut new_tracks);
+                inserted = true;
+            }
+            let remove = node
+                .as_element()
+                .and_then(track_id)
+                .is_some_and(|id| remove_ids.contains(&id));
+            if !remove {
+                new_children.push(node);
+            }
+        }
+        if !inserted {
+            new_children.append(&mut new_tracks);
+        }
+        tracks.children = new_children;
+    }
+
+    set_child_value(
+        live_set,
+        "NextPointeeId",
+        &pointee_allocator.next.to_string(),
+    );
+
     Ok(InjectionInfo {
-        arrangement_created,
-        template_label: clip.info.display_label(),
         tempo_automation_written,
-        notes_in_clip,
         warnings,
     })
 }
 
-fn edit_clip(clip: &mut Element, arrangement: bool, req: &InjectRequest<'_>) -> Result<()> {
-    let start = req.clip_start_beats;
-    let length = req.clip_length_beats;
+fn set_track_group_id(track: &mut Element, value: i64) {
+    set_child_value(track, "TrackGroupId", &value.to_string());
+}
 
-    set_attr(
-        clip,
-        "Time",
-        &crate::format_num(if arrangement { start } else { 0.0 }),
+fn set_linked_track_group_id(track: &mut Element, value: i64) {
+    set_child_value(track, "LinkedTrackGroupId", &value.to_string());
+}
+
+fn set_track_unfolded(track: &mut Element, unfolded: bool) {
+    set_child_value(
+        track,
+        "TrackUnfolded",
+        if unfolded { "true" } else { "false" },
     );
-    if arrangement {
-        set_child_value(clip, "CurrentStart", &crate::format_num(start));
-        set_child_value(clip, "CurrentEnd", &crate::format_num(start + length));
-    } else {
-        set_child_value(clip, "CurrentStart", "0");
-        set_child_value(clip, "CurrentEnd", &crate::format_num(length));
+}
+
+fn max_track_id(tracks: &Element) -> u32 {
+    tracks
+        .children
+        .iter()
+        .filter_map(XMLNode::as_element)
+        .filter(|track| {
+            matches!(
+                track_kind(track),
+                TrackKind::Midi | TrackKind::Group | TrackKind::Return
+            )
+        })
+        .filter_map(track_id)
+        .max()
+        .unwrap_or(0)
+}
+
+fn strip_midi_clips(element: &mut Element) {
+    element.children.retain(|node| {
+        node.as_element()
+            .is_none_or(|child| child.name != "MidiClip")
+    });
+    for child in element
+        .children
+        .iter_mut()
+        .filter_map(XMLNode::as_mut_element)
+    {
+        strip_midi_clips(child);
     }
+}
+
+struct PointeeAllocator {
+    next: u64,
+}
+
+impl PointeeAllocator {
+    fn new(live_set: &Element) -> Self {
+        let mut max = live_set
+            .get_child("NextPointeeId")
+            .and_then(|node| attr(node, "Value"))
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(1);
+        collect_max_pointee_id(live_set, &mut max);
+        Self { next: max + 1 }
+    }
+
+    fn allocate(&mut self) -> u64 {
+        let id = self.next;
+        self.next += 1;
+        id
+    }
+}
+
+fn collect_max_pointee_id(element: &Element, max: &mut u64) {
+    if is_pointee_holder(element)
+        && let Some(id) = attr(element, "Id").and_then(|value| value.parse::<u64>().ok())
+    {
+        *max = (*max).max(id);
+    }
+    for child in element.children.iter().filter_map(XMLNode::as_element) {
+        collect_max_pointee_id(child, max);
+    }
+}
+
+fn is_pointee_holder(element: &Element) -> bool {
+    element.name == "AutomationTarget"
+        || element.name == "ModulationTarget"
+        || element.name == "Pointee"
+        || element.name.starts_with("ControllerTargets.")
+}
+
+fn remap_pointee_ids(element: &mut Element, allocator: &mut PointeeAllocator) {
+    let mut remap = HashMap::new();
+    collect_pointee_ids(element, allocator, &mut remap);
+    rewrite_pointee_ids(element, &remap);
+}
+
+fn collect_pointee_ids(
+    element: &Element,
+    allocator: &mut PointeeAllocator,
+    remap: &mut HashMap<u64, u64>,
+) {
+    if is_pointee_holder(element)
+        && let Some(id) = attr(element, "Id").and_then(|value| value.parse::<u64>().ok())
+    {
+        remap.entry(id).or_insert_with(|| allocator.allocate());
+    }
+    for child in element.children.iter().filter_map(XMLNode::as_element) {
+        collect_pointee_ids(child, allocator, remap);
+    }
+}
+
+fn rewrite_pointee_ids(element: &mut Element, remap: &HashMap<u64, u64>) {
+    if is_pointee_holder(element)
+        && let Some(id) = attr(element, "Id").and_then(|value| value.parse::<u64>().ok())
+        && let Some(new_id) = remap.get(&id)
+    {
+        element.attributes.insert("Id".into(), new_id.to_string());
+    }
+    if element.name == "PointeeId"
+        && let Some(id) = attr(element, "Value").and_then(|value| value.parse::<u64>().ok())
+        && let Some(new_id) = remap.get(&id)
+    {
+        element
+            .attributes
+            .insert("Value".into(), new_id.to_string());
+    }
+    for child in element
+        .children
+        .iter_mut()
+        .filter_map(XMLNode::as_mut_element)
+    {
+        rewrite_pointee_ids(child, remap);
+    }
+}
+
+fn edit_clip(
+    clip: &mut Element,
+    start: f64,
+    length: f64,
+    clip_name: &str,
+    time_signature: Option<(u8, u16)>,
+    notes: &[Note],
+    write_note_ids: bool,
+) -> Result<()> {
+    set_attr(clip, "Time", &crate::format_num(start));
+    set_child_value(clip, "CurrentStart", &crate::format_num(start));
+    set_child_value(clip, "CurrentEnd", &crate::format_num(start + length));
 
     let loop_el = ensure_child(clip, "Loop");
     set_child_value(loop_el, "LoopStart", "0");
@@ -703,7 +1044,7 @@ fn edit_clip(clip: &mut Element, arrangement: bool, req: &InjectRequest<'_>) -> 
     set_child_value(loop_el, "HiddenLoopStart", "0");
     set_child_value(loop_el, "HiddenLoopEnd", &crate::format_num(length));
 
-    set_child_value(clip, "Name", req.clip_name);
+    set_child_value(clip, "Name", clip_name);
     if clip.get_child("Disabled").is_some() {
         set_child_value(clip, "Disabled", "false");
     }
@@ -723,7 +1064,7 @@ fn edit_clip(clip: &mut Element, arrangement: bool, req: &InjectRequest<'_>) -> 
         freeze_end.attributes.insert("Value".into(), "0".into());
     }
 
-    if let Some((numerator, denominator)) = req.time_signature
+    if let Some((numerator, denominator)) = time_signature
         && let Some(sig) = clip
             .get_mut_child("TimeSignature")
             .and_then(|e| e.get_mut_child("TimeSignatures"))
@@ -738,22 +1079,21 @@ fn edit_clip(clip: &mut Element, arrangement: bool, req: &InjectRequest<'_>) -> 
         set_child_value(sig, "Denominator", &denominator.to_string());
     }
 
-    replace_notes(clip, req.notes)
+    replace_notes(clip, notes, write_note_ids)
 }
 
-fn replace_notes(clip: &mut Element, notes: &[Note]) -> Result<()> {
+fn replace_notes(clip: &mut Element, notes: &[Note], write_note_ids: bool) -> Result<()> {
     let notes_el = clip
         .get_mut_child("Notes")
         .context("模板 Clip 没有 <Notes> 节点，无法注入音符")?;
 
-    let keytracks = build_keytracks(notes);
+    let keytracks = build_keytracks(notes, write_note_ids);
     if let Some(existing) = notes_el.get_mut_child("KeyTracks") {
         *existing = keytracks;
     } else {
         notes_el.children.insert(0, XMLNode::Element(keytracks));
     }
 
-    // Clear per-note data that referenced the template's placeholder notes.
     if let Some(store) = notes_el.get_mut_child("PerNoteEventStore")
         && let Some(lists) = store.get_mut_child("EventLists")
     {
@@ -780,7 +1120,7 @@ fn replace_notes(clip: &mut Element, notes: &[Note]) -> Result<()> {
     Ok(())
 }
 
-fn build_keytracks(notes: &[Note]) -> Element {
+fn build_keytracks(notes: &[Note], write_note_ids: bool) -> Element {
     use std::collections::BTreeMap;
 
     let mut by_key: BTreeMap<u8, Vec<&Note>> = BTreeMap::new();
@@ -818,10 +1158,12 @@ fn build_keytracks(notes: &[Note]) -> Element {
             event
                 .attributes
                 .insert("OffVelocity".into(), crate::format_num(note.off_velocity));
-            event
-                .attributes
-                .insert("NoteId".into(), note_id.to_string());
-            note_id += 1;
+            if write_note_ids {
+                event
+                    .attributes
+                    .insert("NoteId".into(), note_id.to_string());
+                note_id += 1;
+            }
             key_notes.children.push(XMLNode::Element(event));
         }
 
@@ -836,6 +1178,189 @@ fn build_keytracks(notes: &[Note]) -> Element {
     }
 
     keytracks
+}
+
+fn clear_clip_envelopes(clip: &mut Element) {
+    if let Some(envelopes) = clip.get_mut_child("Envelopes")
+        && let Some(inner) = envelopes.get_mut_child("Envelopes")
+    {
+        inner.children.clear();
+    }
+}
+
+fn controller_targets(track: &Element) -> BTreeMap<u8, String> {
+    let Some(midi_controllers) = find_descendant(track, "MidiControllers") else {
+        return BTreeMap::new();
+    };
+    let mut targets = BTreeMap::new();
+    for node in &midi_controllers.children {
+        let Some(target) = node.as_element() else {
+            continue;
+        };
+        let Some(cc) = target
+            .name
+            .strip_prefix("ControllerTargets.")
+            .and_then(|cc| cc.parse::<u8>().ok())
+        else {
+            continue;
+        };
+        let Some(id) = attr(target, "Id").filter(|id| !id.is_empty()) else {
+            continue;
+        };
+        targets.insert(cc, id.to_string());
+    }
+    targets
+}
+
+fn add_cc_envelopes(
+    clip: &mut Element,
+    channel: u8,
+    controllers: &BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
+    targets: &BTreeMap<u8, String>,
+    ppq: u16,
+    length: f64,
+    warnings: &mut Vec<String>,
+) -> Result<()> {
+    let Some(channel_controllers) = controllers.get(&channel) else {
+        return Ok(());
+    };
+
+    let mut next_envelope_id = next_clip_envelope_id(clip);
+    for (controller, events) in channel_controllers {
+        let Some(target_id) = targets.get(controller) else {
+            if *controller == 64 {
+                warnings.push(format!(
+                    "通道 A{:02} 的轨道没有 ControllerTargets.{controller}，CC64 未写入。",
+                    channel + 1
+                ));
+            }
+            continue;
+        };
+        let Some(points) = controller_points(events, ppq, length) else {
+            continue;
+        };
+        let envelope = build_clip_envelope(next_envelope_id, target_id, &points);
+        next_envelope_id += 1;
+
+        let envelopes = ensure_child(clip, "Envelopes");
+        let inner = ensure_child(envelopes, "Envelopes");
+        inner.children.push(XMLNode::Element(envelope));
+    }
+    Ok(())
+}
+
+fn controller_points(events: &[ControllerEvent], ppq: u16, length: f64) -> Option<Vec<(f64, f64)>> {
+    let mut by_tick: BTreeMap<u64, u8> = BTreeMap::new();
+    for event in events {
+        by_tick.insert(event.tick, event.value);
+    }
+
+    let mut initial = 0.0;
+    let mut changes = Vec::new();
+    for (tick, value) in by_tick {
+        let beat = tick as f64 / ppq as f64;
+        if beat > length {
+            continue;
+        }
+        if beat == 0.0 {
+            initial = value as f64;
+        } else {
+            changes.push((beat, value as f64));
+        }
+    }
+
+    if changes.is_empty() {
+        return None;
+    }
+
+    let mut points = vec![(-63_072_000.0, initial)];
+    let mut current = initial;
+    for (beat, value) in changes {
+        if value == current {
+            continue;
+        }
+        points.push((beat, current));
+        points.push((beat, value));
+        current = value;
+    }
+    if points.len() <= 1 {
+        None
+    } else {
+        Some(points)
+    }
+}
+
+fn next_clip_envelope_id(clip: &Element) -> u64 {
+    clip.get_child("Envelopes")
+        .and_then(|outer| outer.get_child("Envelopes"))
+        .into_iter()
+        .flat_map(|inner| inner.children.iter())
+        .filter_map(XMLNode::as_element)
+        .filter(|element| element.name == "ClipEnvelope")
+        .filter_map(|element| attr(element, "Id"))
+        .filter_map(|id| id.parse::<u64>().ok())
+        .max()
+        .map(|max| max + 1)
+        .unwrap_or(0)
+}
+
+fn build_clip_envelope(envelope_id: u64, target_id: &str, points: &[(f64, f64)]) -> Element {
+    let mut envelope = Element::new("ClipEnvelope");
+    envelope
+        .attributes
+        .insert("Id".into(), envelope_id.to_string());
+
+    let mut target = Element::new("EnvelopeTarget");
+    let mut pointee = Element::new("PointeeId");
+    pointee
+        .attributes
+        .insert("Value".into(), target_id.to_string());
+    target.children.push(XMLNode::Element(pointee));
+    envelope.children.push(XMLNode::Element(target));
+
+    let mut automation = Element::new("Automation");
+    let mut events = Element::new("Events");
+    for (index, (time, value)) in points.iter().enumerate() {
+        let mut event = Element::new("FloatEvent");
+        event
+            .attributes
+            .insert("Id".into(), (index + 1).to_string());
+        event
+            .attributes
+            .insert("Time".into(), crate::format_num(*time));
+        event
+            .attributes
+            .insert("Value".into(), crate::format_num(*value));
+        events.children.push(XMLNode::Element(event));
+    }
+    automation.children.push(XMLNode::Element(events));
+
+    let mut view_state = Element::new("AutomationTransformViewState");
+    let mut pending = Element::new("IsTransformPending");
+    pending.attributes.insert("Value".into(), "false".into());
+    view_state.children.push(XMLNode::Element(pending));
+    view_state
+        .children
+        .push(XMLNode::Element(Element::new("TimeAndValueTransforms")));
+    automation.children.push(XMLNode::Element(view_state));
+    envelope.children.push(XMLNode::Element(automation));
+
+    let mut loop_slot = Element::new("LoopSlot");
+    loop_slot
+        .children
+        .push(XMLNode::Element(Element::new("Value")));
+    envelope.children.push(XMLNode::Element(loop_slot));
+
+    let mut scroller = Element::new("ScrollerTimePreserver");
+    let mut left = Element::new("LeftTime");
+    left.attributes.insert("Value".into(), "0".into());
+    let mut right = Element::new("RightTime");
+    right.attributes.insert("Value".into(), "0".into());
+    scroller.children.push(XMLNode::Element(left));
+    scroller.children.push(XMLNode::Element(right));
+    envelope.children.push(XMLNode::Element(scroller));
+
+    envelope
 }
 
 fn set_tempo(
@@ -1078,26 +1603,6 @@ fn set_track_name(track: &mut Element, name: &str) {
     }
 }
 
-fn track_has_clip_in_context(track: &Element, wanted: ClipContext) -> bool {
-    fn walk(el: &Element, context: ClipContext, wanted: ClipContext) -> bool {
-        for child in el.children.iter().filter_map(XMLNode::as_element) {
-            let child_context = match child.name.as_str() {
-                "ArrangerAutomation" => ClipContext::Arrangement,
-                "ClipSlotList" => ClipContext::Session,
-                _ => context,
-            };
-            if child.name == "MidiClip" && child_context == wanted {
-                return true;
-            }
-            if walk(child, child_context, wanted) {
-                return true;
-            }
-        }
-        false
-    }
-    walk(track, ClipContext::Other, wanted)
-}
-
 fn ensure_arranger_events(track: &mut Element) -> Result<&mut Element> {
     let arranger = find_descendant_mut(track, "ArrangerAutomation").context(
         "目标轨道缺少 ArrangerAutomation。请在 Live 中把占位 Clip 拖到 Arrangement 后保存模板。",
@@ -1141,6 +1646,28 @@ fn looks_like_grand_piano(track_name: &str, devices: &[String]) -> bool {
         let device = device.to_lowercase();
         device.contains("grand piano") || device.contains("grandpiano")
     })
+}
+
+fn track_kind(track: &Element) -> TrackKind {
+    match track.name.as_str() {
+        "MidiTrack" => TrackKind::Midi,
+        "GroupTrack" => TrackKind::Group,
+        "ReturnTrack" => TrackKind::Return,
+        _ => TrackKind::Other,
+    }
+}
+
+fn track_id(track: &Element) -> Option<u32> {
+    attr(track, "Id").and_then(|id| id.parse().ok())
+}
+
+fn track_group_id(track: &Element) -> Option<u32> {
+    track
+        .get_child("TrackGroupId")
+        .and_then(|e| attr(e, "Value"))
+        .and_then(|value| value.parse::<i64>().ok())
+        .filter(|value| *value >= 0)
+        .map(|value| value as u32)
 }
 
 fn track_name(track: &Element) -> String {
@@ -1214,13 +1741,6 @@ fn navigate<'a>(mut element: &'a Element, path: &[usize]) -> Option<&'a Element>
     Some(element)
 }
 
-fn mutate_navigate<'a>(mut element: &'a mut Element, path: &[usize]) -> Option<&'a mut Element> {
-    for &index in path {
-        element = element.children.get_mut(index)?.as_mut_element()?;
-    }
-    Some(element)
-}
-
 fn child_mut<'a>(element: &'a mut Element, name: &str) -> Option<&'a mut Element> {
     element
         .children
@@ -1275,18 +1795,38 @@ fn child_f64(element: &Element, name: &str) -> f64 {
 mod tests {
     use super::*;
 
-    const MINI: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+    const MINI_GROUP: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <Ableton MajorVersion="5" MinorVersion="12.0_12300" Creator="test" Revision="x">
  <LiveSet>
+  <NextPointeeId Value="500" />
   <MainTrack><DeviceChain><Mixer>
    <Tempo><Manual Value="120"/><MidiControllerRange><Min Value="60"/><Max Value="200"/></MidiControllerRange><AutomationTarget Id="8"><LockEnvelope Value="0"/></AutomationTarget></Tempo>
   </Mixer></DeviceChain></MainTrack>
   <Tracks>
+   <GroupTrack Id="20">
+    <Name><EffectiveName Value="A01"/><UserName Value=""/></Name>
+    <Color Value="1" />
+    <AutomationEnvelopes><Envelopes /></AutomationEnvelopes>
+    <TrackGroupId Value="-1" />
+    <TrackUnfolded Value="true" />
+    <Slots><GroupTrackSlot Id="0"><LomId Value="0" /></GroupTrackSlot></Slots>
+    <DeviceChain>
+     <Mixer><Pointee Id="300" /></Mixer>
+     <DeviceChain><Devices><AudioEffectGroupDevice Id="1"><UserName Value="Group FX" /></AudioEffectGroupDevice></Devices></DeviceChain>
+     <AudioOutputRouting><Target Value="AudioOut/Main" /></AudioOutputRouting>
+    </DeviceChain>
+   </GroupTrack>
    <MidiTrack Id="1">
     <Name><EffectiveName Value="Piano"/><UserName Value=""/></Name>
-    <DeviceChain><DeviceChain><Devices>
-      <InstrumentGroupDevice Id="2"><UserName Value="Grand Piano"/></InstrumentGroupDevice>
-    </Devices></DeviceChain></DeviceChain>
+    <TrackGroupId Value="20" />
+    <TrackUnfolded Value="true" />
+    <DeviceChain>
+     <DeviceChain><Devices><InstrumentGroupDevice Id="2"><UserName Value="Grand Piano" /></InstrumentGroupDevice></Devices></DeviceChain>
+     <Mixer><Pointee Id="400" /></Mixer>
+     <MidiControllers>
+      <ControllerTargets.64 Id="900"><LockEnvelope Value="0" /></ControllerTargets.64>
+     </MidiControllers>
+    </DeviceChain>
     <ClipSlotList>
       <ClipSlot Id="0"><ClipSlot><Value /></ClipSlot></ClipSlot>
     </ClipSlotList>
@@ -1319,6 +1859,7 @@ mod tests {
                 velocity: 100.0,
                 off_velocity: 64.0,
                 channel: 0,
+                source_track: 0,
             },
             Note {
                 key: 64,
@@ -1327,63 +1868,148 @@ mod tests {
                 velocity: 80.0,
                 off_velocity: 64.0,
                 channel: 0,
+                source_track: 0,
             },
         ]
     }
 
+    fn controllers() -> BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>> {
+        let mut controllers = BTreeMap::new();
+        controllers.entry(0).or_insert_with(BTreeMap::new).insert(
+            64,
+            vec![
+                ControllerEvent { tick: 0, value: 0 },
+                ControllerEvent {
+                    tick: 480,
+                    value: 127,
+                },
+                ControllerEvent {
+                    tick: 960,
+                    value: 0,
+                },
+            ],
+        );
+        controllers
+    }
+
+    fn single_group_plan() -> Vec<GroupPlan> {
+        vec![GroupPlan {
+            channel: 0,
+            group_name: "A01".to_string(),
+            children: vec![ChildPlan {
+                source_track: 0,
+                track_name: "Piano".to_string(),
+                clip_name: "Test".to_string(),
+                notes: notes(),
+                clip_length_beats: 4.0,
+            }],
+        }]
+    }
+
     #[test]
-    fn inspect_and_inject_arrangement_clip() {
-        let root = parse_xml(MINI.as_bytes()).unwrap();
+    fn inspect_and_inject_group_clip() {
+        let mut root = parse_xml(MINI_GROUP.as_bytes()).unwrap();
         let clips = enumerate_clips(&root).unwrap();
         assert_eq!(clips.len(), 1);
-        assert_eq!(clips[0].info.location, ClipLocation::Arrangement);
+        assert_eq!(clips[0].info.group_name.as_deref(), Some("A01"));
         assert_eq!(clips[0].info.note_count, 1);
 
-        let mut root = root;
-        let clip = clips[0].clone();
-        let info = inject_notes(
+        let groups = single_group_plan();
+        let info = inject_groups(
             &mut root,
-            &clip,
-            InjectRequest {
-                notes: &notes(),
-                clip_length_beats: 4.0,
+            &clips[0],
+            GroupInjectRequest {
+                groups: &groups,
                 clip_start_beats: 0.0,
                 bpm: 90.0,
-                clip_name: "Test",
-                track_name: Some("Piano"),
                 time_signature: Some((4, 4)),
                 tempo_map: None,
+                controllers: &controllers(),
+                ppq: 480,
+                write_cc_automation: true,
             },
         )
         .unwrap();
-        assert_eq!(info.notes_in_clip, 2);
-        assert!(!info.arrangement_created);
+        assert!(!info.tempo_automation_written);
 
         let xml = String::from_utf8(serialize_xml(&root).unwrap()).unwrap();
         assert!(xml.contains("Velocity=\"100\""));
         assert!(xml.contains("MidiKey Value=\"64\""));
         assert!(xml.contains("Manual Value=\"90\""));
-        assert!(xml.contains("NoteIdGenerator><NextId Value=\"3\""));
+        assert_eq!(xml.matches("<GroupTrack ").count(), 1);
+        assert_eq!(xml.matches("<MidiTrack").count(), 1);
+        assert_eq!(xml.matches("<MidiNoteEvent").count(), 2);
+        assert_eq!(xml.matches("<ClipEnvelope").count(), 1);
+    }
+
+    #[test]
+    fn multiple_children_get_unique_ids_and_group_links() {
+        let mut root = parse_xml(MINI_GROUP.as_bytes()).unwrap();
+        let clips = enumerate_clips(&root).unwrap();
+        let groups = vec![GroupPlan {
+            channel: 0,
+            group_name: "A01".to_string(),
+            children: vec![
+                ChildPlan {
+                    source_track: 0,
+                    track_name: "Piano A".to_string(),
+                    clip_name: "A".to_string(),
+                    notes: notes(),
+                    clip_length_beats: 4.0,
+                },
+                ChildPlan {
+                    source_track: 1,
+                    track_name: "Piano B".to_string(),
+                    clip_name: "B".to_string(),
+                    notes: notes(),
+                    clip_length_beats: 4.0,
+                },
+            ],
+        }];
+        inject_groups(
+            &mut root,
+            &clips[0],
+            GroupInjectRequest {
+                groups: &groups,
+                clip_start_beats: 0.0,
+                bpm: 120.0,
+                time_signature: Some((4, 4)),
+                tempo_map: None,
+                controllers: &controllers(),
+                ppq: 480,
+                write_cc_automation: true,
+            },
+        )
+        .unwrap();
+
+        let xml = String::from_utf8(serialize_xml(&root).unwrap()).unwrap();
+        assert_eq!(xml.matches("<GroupTrack ").count(), 1);
+        assert_eq!(xml.matches("<MidiTrack").count(), 2);
+        assert_eq!(xml.matches("<MidiNoteEvent").count(), 4);
+        assert_eq!(xml.matches("<ClipEnvelope").count(), 2);
+        assert!(xml.contains("Piano A"));
+        assert!(xml.contains("Piano B"));
+        assert_eq!(xml.matches("<TrackGroupId Value=\"").count(), 3);
     }
 
     #[test]
     fn tempo_map_writes_step_automation() {
-        let mut root = parse_xml(MINI.as_bytes()).unwrap();
+        let mut root = parse_xml(MINI_GROUP.as_bytes()).unwrap();
         let clips = enumerate_clips(&root).unwrap();
-        let clip = clips[0].clone();
+        let groups = single_group_plan();
         let tempo_map = [(0.0, 60.0), (0.5, 137.0), (4.0, 120.0)];
-        let info = inject_notes(
+        let info = inject_groups(
             &mut root,
-            &clip,
-            InjectRequest {
-                notes: &notes(),
-                clip_length_beats: 4.0,
+            &clips[0],
+            GroupInjectRequest {
+                groups: &groups,
                 clip_start_beats: 0.0,
                 bpm: 60.0,
-                clip_name: "Test",
-                track_name: Some("Piano"),
                 time_signature: Some((4, 4)),
                 tempo_map: Some(&tempo_map),
+                controllers: &controllers(),
+                ppq: 480,
+                write_cc_automation: false,
             },
         )
         .unwrap();
@@ -1395,47 +2021,5 @@ mod tests {
         assert!(xml.contains("Time=\"0.5\" Value=\"60\""));
         assert!(xml.contains("Time=\"0.5\" Value=\"137\""));
         assert!(xml.contains("Time=\"4\" Value=\"120\""));
-    }
-
-    #[test]
-    fn session_clip_is_cloned_to_arrangement() {
-        let clip_start = MINI.find("<MidiClip").unwrap();
-        let clip_end = MINI.find("</MidiClip>").unwrap() + "</MidiClip>".len();
-        let clip = &MINI[clip_start..clip_end];
-
-        let events_start = MINI.find("<Events>").unwrap() + "<Events>".len();
-        let events_end = MINI.find("</Events>").unwrap();
-        let without_arrangement = format!("{}{}", &MINI[..events_start], &MINI[events_end..]);
-        let session_xml =
-            without_arrangement.replacen("<Value />", &format!("<Value>{clip}</Value>"), 1);
-
-        let mut root = parse_xml(session_xml.as_bytes()).unwrap();
-        let clips = enumerate_clips(&root).unwrap();
-        assert_eq!(clips.len(), 1);
-        assert_eq!(clips[0].info.location, ClipLocation::Session);
-        let clip = clips[0].clone();
-
-        let info = inject_notes(
-            &mut root,
-            &clip,
-            InjectRequest {
-                notes: &notes(),
-                clip_length_beats: 4.0,
-                clip_start_beats: 0.0,
-                bpm: 90.0,
-                clip_name: "Test",
-                track_name: Some("Piano"),
-                time_signature: Some((4, 4)),
-                tempo_map: None,
-            },
-        )
-        .unwrap();
-        assert!(info.arrangement_created);
-        assert_eq!(info.notes_in_clip, 2);
-
-        let xml = String::from_utf8(serialize_xml(&root).unwrap()).unwrap();
-        // Session source and arrangement clone each contain two notes.
-        assert_eq!(xml.matches("<MidiNoteEvent").count(), 4);
-        assert_eq!(xml.matches("<ArrangerAutomation>").count(), 1);
     }
 }

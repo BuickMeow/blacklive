@@ -1,9 +1,9 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 
-use crate::als::{self, InjectRequest, TemplateReport};
+use crate::als::{self, ChildPlan, GroupInjectRequest, GroupPlan, TemplateReport};
 use crate::midi::{MidiStats, Note, ParsedMidi, parse_midi_file};
 
 #[derive(Clone, Debug)]
@@ -26,12 +26,14 @@ pub struct ConvertOptions {
     pub tail_beats: f64,
     /// Arrangement start position, in beats (0 = bar 1).
     pub start_beats: f64,
-    /// Defaults to the MIDI file stem.
+    /// Base name for generated clips; defaults to the MIDI file stem.
     pub clip_name: Option<String>,
-    /// Defaults to the clip name.
-    pub track_name: Option<String>,
     /// Cut a note short when the next note of the same pitch starts before it ends.
     pub trim_same_pitch: bool,
+    /// Create one child track per source MIDI track inside each channel group.
+    pub split_source_tracks: bool,
+    /// Write MIDI controllers (including CC64) as clip envelope automation.
+    pub write_cc_automation: bool,
 }
 
 impl Default for ConvertOptions {
@@ -47,10 +49,26 @@ impl Default for ConvertOptions {
             tail_beats: 0.0,
             start_beats: 0.0,
             clip_name: None,
-            track_name: None,
             trim_same_pitch: false,
+            split_source_tracks: true,
+            write_cc_automation: true,
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct TrackResult {
+    pub name: String,
+    pub source_track: u16,
+    pub note_count: usize,
+    pub clip_length_beats: f64,
+}
+
+#[derive(Clone, Debug)]
+pub struct GroupResult {
+    pub channel: u8,
+    pub name: String,
+    pub tracks: Vec<TrackResult>,
 }
 
 #[derive(Clone, Debug)]
@@ -59,7 +77,6 @@ pub struct ConversionResult {
     pub template_path: PathBuf,
     pub midi_path: PathBuf,
     pub template_clip: String,
-    pub arrangement_created: bool,
     pub bpm: f64,
     pub tempo_automation: bool,
     pub clip_start_beats: f64,
@@ -70,8 +87,7 @@ pub struct ConversionResult {
     pub dropped_by_transpose: usize,
     pub clamped_short_notes: usize,
     pub trimmed_overlaps: usize,
-    pub clip_name: String,
-    pub track_name: String,
+    pub groups: Vec<GroupResult>,
     pub midi_stats: MidiStats,
     pub warnings: Vec<String>,
 }
@@ -106,10 +122,6 @@ pub fn convert_midi_to_als(
                 .filter(|s| !s.is_empty())
         })
         .unwrap_or_else(|| "MIDI".to_string());
-    let requested_track_name = opts.track_name.clone().filter(|s| !s.trim().is_empty());
-    let display_track_name = requested_track_name
-        .clone()
-        .unwrap_or_else(|| selected.info.track_name.clone());
 
     let mut warnings = parsed.stats.warnings.clone();
     if let Some(bpm) = opts.bpm_override {
@@ -140,19 +152,15 @@ pub fn convert_midi_to_als(
         ));
     }
 
-    let start_beats = opts.start_beats.max(0.0);
-    if !start_beats.is_finite() {
+    if !opts.start_beats.is_finite() {
         bail!("Arrangement 起点必须是有限数");
     }
-    if (start_beats - opts.start_beats).abs() > 1e-9 {
+    let start_beats = if opts.start_beats < 0.0 {
         warnings.push("Arrangement 起点不能为负数，已改为 0。".into());
-    }
-    let raw_end = filtered
-        .notes
-        .iter()
-        .map(|n| n.start + n.duration)
-        .fold(0.0, f64::max);
-    let clip_length_beats = raw_end + opts.tail_beats.max(0.0);
+        0.0
+    } else {
+        opts.start_beats
+    };
 
     let time_signature = parsed
         .stats
@@ -182,18 +190,103 @@ pub fn convert_midi_to_als(
         None
     };
 
-    let injection = als::inject_notes(
+    let tail = opts.tail_beats.max(0.0);
+    let mut grouped: BTreeMap<u8, BTreeMap<u16, Vec<&Note>>> = BTreeMap::new();
+    for note in &filtered.notes {
+        let source_track = if opts.split_source_tracks {
+            note.source_track
+        } else {
+            0
+        };
+        grouped
+            .entry(note.channel)
+            .or_default()
+            .entry(source_track)
+            .or_default()
+            .push(note);
+    }
+
+    let mut groups = Vec::new();
+    let mut max_clip_length = 0.0f64;
+    for (channel, tracks) in grouped {
+        let group_name = format!("A{:02}", channel + 1);
+        let child_count = tracks.len();
+        let mut children = Vec::new();
+        let mut used_names = std::collections::HashSet::new();
+
+        for (child_index, (source_track, notes)) in tracks.into_iter().enumerate() {
+            let source_name = parsed
+                .stats
+                .track_names_by_index
+                .get(&source_track)
+                .cloned()
+                .filter(|name| !name.trim().is_empty());
+            let mut track_name =
+                source_name.unwrap_or_else(|| format!("{group_name}-{:02}", child_index + 1));
+            if !used_names.insert(track_name.clone()) {
+                track_name = format!("{track_name}-{:02}", child_index + 1);
+            }
+            let clip_name = if child_count == 1 {
+                clip_name.clone()
+            } else {
+                format!("{clip_name} {group_name}-{:02}", child_index + 1)
+            };
+            let length = notes
+                .iter()
+                .map(|note| note.start + note.duration)
+                .fold(0.0, f64::max)
+                + tail;
+            max_clip_length = max_clip_length.max(length);
+            children.push(ChildPlan {
+                source_track,
+                track_name,
+                clip_name,
+                notes: notes.into_iter().cloned().collect(),
+                clip_length_beats: length,
+            });
+        }
+
+        groups.push(GroupPlan {
+            channel,
+            group_name,
+            children,
+        });
+    }
+
+    if groups.is_empty() {
+        bail!("没有可写入的通道分组");
+    }
+
+    let group_results: Vec<GroupResult> = groups
+        .iter()
+        .map(|group| GroupResult {
+            channel: group.channel,
+            name: group.group_name.clone(),
+            tracks: group
+                .children
+                .iter()
+                .map(|child| TrackResult {
+                    name: child.track_name.clone(),
+                    source_track: child.source_track,
+                    note_count: child.notes.len(),
+                    clip_length_beats: child.clip_length_beats,
+                })
+                .collect(),
+        })
+        .collect();
+
+    let injection = als::inject_groups(
         &mut root,
         selected,
-        InjectRequest {
-            notes: &filtered.notes,
-            clip_length_beats,
+        GroupInjectRequest {
+            groups: &groups,
             clip_start_beats: start_beats,
             bpm,
-            clip_name: &clip_name,
-            track_name: requested_track_name.as_deref(),
             time_signature,
             tempo_map,
+            controllers: &parsed.stats.controllers,
+            ppq: parsed.stats.ppq,
+            write_cc_automation: opts.write_cc_automation,
         },
     )?;
     warnings.extend(injection.warnings);
@@ -209,20 +302,18 @@ pub fn convert_midi_to_als(
         output_path: output_path.to_path_buf(),
         template_path: template_path.to_path_buf(),
         midi_path: midi_path.to_path_buf(),
-        template_clip: injection.template_label,
-        arrangement_created: injection.arrangement_created,
+        template_clip: selected.info.display_label(),
         bpm,
         tempo_automation,
         clip_start_beats: start_beats,
-        clip_length_beats,
+        clip_length_beats: max_clip_length,
         source_note_count: parsed.stats.note_count,
         used_note_count: filtered.notes.len(),
         dropped_by_channel: filtered.dropped_by_channel,
         dropped_by_transpose: filtered.dropped_by_transpose,
         clamped_short_notes: filtered.clamped_short_notes,
         trimmed_overlaps: filtered.trimmed_overlaps,
-        clip_name,
-        track_name: display_track_name,
+        groups: group_results,
         midi_stats: parsed.stats,
         warnings,
     })
@@ -483,6 +574,7 @@ mod tests {
                 velocity: 100.0,
                 off_velocity: 64.0,
                 channel: 0,
+                source_track: 0,
             },
             Note {
                 key: 60,
@@ -491,6 +583,7 @@ mod tests {
                 velocity: 90.0,
                 off_velocity: 64.0,
                 channel: 0,
+                source_track: 0,
             },
         ];
         assert_eq!(trim_same_pitch_overlaps(&mut notes), 1);

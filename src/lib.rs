@@ -9,11 +9,12 @@ pub mod als;
 pub mod convert;
 pub mod midi;
 
-pub use als::{ClipInfo, ClipLocation, TemplateReport, TrackInfo};
+pub use als::{ClipInfo, ClipLocation, TemplateReport, TrackInfo, TrackKind};
 pub use convert::{
-    ConversionResult, ConvertOptions, convert_midi_to_als, inspect_template, parse_channel_filter,
+    ConversionResult, ConvertOptions, GroupResult, TrackResult, convert_midi_to_als,
+    inspect_template, parse_channel_filter,
 };
-pub use midi::{MidiStats, Note, ParsedMidi, parse_midi_file};
+pub use midi::{ControllerEvent, MidiStats, Note, ParsedMidi, parse_midi_file};
 
 /// Format an Ableton XML number without trailing zeros or scientific notation.
 ///

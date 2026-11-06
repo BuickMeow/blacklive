@@ -40,7 +40,8 @@ struct App {
     start_beats: f64,
     trim_same_pitch: bool,
     clip_name: String,
-    track_name: String,
+    split_source_tracks: bool,
+    write_cc_automation: bool,
 
     template_report: Option<TemplateReport>,
     selected_clip: Option<usize>,
@@ -68,7 +69,8 @@ impl App {
             start_beats: 0.0,
             trim_same_pitch: false,
             clip_name: String::new(),
-            track_name: String::new(),
+            split_source_tracks: true,
+            write_cc_automation: true,
             template_report: None,
             selected_clip: None,
             midi_stats: None,
@@ -251,17 +253,20 @@ impl App {
             tail_beats: self.tail_beats,
             start_beats: self.start_beats,
             clip_name: non_empty(&self.clip_name),
-            track_name: non_empty(&self.track_name),
             trim_same_pitch: self.trim_same_pitch,
+            split_source_tracks: self.split_source_tracks,
+            write_cc_automation: self.write_cc_automation,
         };
 
         self.set_status("正在转换…");
         match convert_midi_to_als(&midi, &template, &output, &options) {
             Ok(result) => {
                 self.log(format!(
-                    "✓ 输出 {}，写入 {} 音符，BPM {}，Clip {:.2} beats",
+                    "✓ 输出 {}，写入 {} 音符，{} 组 / {} 轨，BPM {}，Clip {:.2} beats",
                     result.output_path.display(),
                     result.used_note_count,
+                    result.groups.len(),
+                    result.groups.iter().map(|g| g.tracks.len()).sum::<usize>(),
                     blacklive::format_num(result.bpm),
                     result.clip_length_beats
                 ));
@@ -399,15 +404,20 @@ impl App {
             .default_open(false)
             .show(ui, |ui| {
                 for track in &report.tracks {
-                    ui.label(format!(
-                        "#{} {}{}",
-                        track.index,
-                        track.name,
-                        if track.has_instrument {
-                            ""
-                        } else {
+                    let group = track
+                        .group_name
+                        .as_ref()
+                        .map(|name| format!("  @ {name}"))
+                        .unwrap_or_default();
+                    let warning =
+                        if track.kind == blacklive::als::TrackKind::Midi && !track.has_instrument {
                             "  [!] 无乐器"
-                        }
+                        } else {
+                            ""
+                        };
+                    ui.label(format!(
+                        "#{} [{}] {}{}{}",
+                        track.index, track.kind, track.name, group, warning
                     ));
                     if !track.devices.is_empty() {
                         ui.label(format!("    设备: {}", track.devices.join(", ")));
@@ -496,8 +506,8 @@ impl App {
 
                 ui.label("Clip 名称");
                 ui.add(egui::TextEdit::singleline(&mut self.clip_name).desired_width(150.0));
-                ui.label("轨道名称");
-                ui.add(egui::TextEdit::singleline(&mut self.track_name).desired_width(150.0));
+                ui.checkbox(&mut self.split_source_tracks, "按源轨道拆分");
+                ui.checkbox(&mut self.write_cc_automation, "CC 自动化");
                 ui.end_row();
             });
     }
@@ -541,9 +551,15 @@ impl App {
         if let Some(result) = &self.last_result {
             ui.horizontal_wrapped(|ui| {
                 ui.label(format!(
-                    "写入 {} / 源 {} 音符   BPM {}   长度 {} beats",
+                    "写入 {} / 源 {} 音符   {} 组 / {} 轨   BPM {}   长度 {} beats",
                     result.used_note_count,
                     result.source_note_count,
+                    result.groups.len(),
+                    result
+                        .groups
+                        .iter()
+                        .map(|group| group.tracks.len())
+                        .sum::<usize>(),
                     blacklive::format_num(result.bpm),
                     blacklive::format_num(result.clip_length_beats)
                 ));

@@ -18,8 +18,18 @@ pub struct Note {
     pub velocity: f64,
     /// MIDI note-off velocity, normally 64.
     pub off_velocity: f64,
-    /// Source MIDI channel, 0..=15 (kept for diagnostics / future multi-track support).
+    /// Source MIDI channel, 0..=15.
     pub channel: u8,
+    /// Source MIDI track index in the file.
+    pub source_track: u16,
+}
+
+#[derive(Clone, Debug)]
+pub struct ControllerEvent {
+    /// Absolute MIDI tick.
+    pub tick: u64,
+    /// Raw 0..=127 controller value.
+    pub value: u8,
 }
 
 #[derive(Clone, Debug)]
@@ -42,6 +52,10 @@ pub struct MidiStats {
     pub ppq: u16,
     pub track_count: usize,
     pub track_names: Vec<String>,
+    /// Track names by source track index; missing/empty names are omitted.
+    pub track_names_by_index: BTreeMap<u16, String>,
+    /// channel -> controller number -> absolute-tick events.
+    pub controllers: BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
     /// Number of paired notes before channel/filter/transpose processing.
     pub note_count: usize,
     pub notes_per_channel: BTreeMap<u8, usize>,
@@ -76,6 +90,8 @@ impl Default for MidiStats {
             ppq: 0,
             track_count: 0,
             track_names: Vec::new(),
+            track_names_by_index: BTreeMap::new(),
+            controllers: BTreeMap::new(),
             note_count: 0,
             notes_per_channel: BTreeMap::new(),
             programs: BTreeMap::new(),
@@ -216,10 +232,19 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
                                 },
                             });
                         }
-                        MidiMessage::Controller { controller, .. } => {
-                            if controller.as_int() == 64 {
+                        MidiMessage::Controller { controller, value } => {
+                            let controller = controller.as_int();
+                            let value = value.as_int();
+                            if controller == 64 {
                                 stats.sustain_event_count += 1;
                             }
+                            stats
+                                .controllers
+                                .entry(channel)
+                                .or_default()
+                                .entry(controller)
+                                .or_default()
+                                .push(ControllerEvent { tick, value });
                         }
                         MidiMessage::PitchBend { .. } => {
                             stats.pitch_bend_event_count += 1;
@@ -257,6 +282,9 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
         }
 
         if let Some(name) = track_name.filter(|s| !s.is_empty()) {
+            stats
+                .track_names_by_index
+                .insert(track_idx as u16, name.clone());
             stats.track_names.push(name);
         }
     }
@@ -295,12 +323,6 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
         ));
     }
 
-    if stats.sustain_event_count > 0 {
-        stats.warnings.push(format!(
-            "检测到 {} 个 CC64 延音踏板事件；当前版本忽略踏板，钢琴声可能偏干。",
-            stats.sustain_event_count
-        ));
-    }
     if stats.pitch_bend_event_count > 0 {
         stats.warnings.push(format!(
             "检测到 {} 个 Pitch Bend 事件；当前版本忽略弯音。",
@@ -353,6 +375,7 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
                         velocity: start.velocity as f64,
                         off_velocity: if velocity == 0 { 64.0 } else { velocity as f64 },
                         channel: event.channel,
+                        source_track: event.track as u16,
                     });
                 } else {
                     stats.unmatched_note_offs += 1;
@@ -467,6 +490,7 @@ mod tests {
                 velocity: 100.0,
                 off_velocity: 64.0,
                 channel: 0,
+                source_track: 0,
             },
             Note {
                 key: 60,
@@ -475,6 +499,7 @@ mod tests {
                 velocity: 100.0,
                 off_velocity: 64.0,
                 channel: 0,
+                source_track: 0,
             },
         ];
         assert_eq!(max_polyphony_ticks(&notes, 480), 1);
