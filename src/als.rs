@@ -159,6 +159,7 @@ pub(crate) struct ChildPlan {
 pub(crate) struct GroupPlan {
     pub channel: u8,
     pub group_name: String,
+    pub prototype: RawClip,
     pub children: Vec<ChildPlan>,
 }
 
@@ -726,7 +727,6 @@ fn collect_pointee_ids_for_validation(
 
 pub(crate) fn inject_groups(
     root: &mut Element,
-    prototype: &RawClip,
     req: GroupInjectRequest<'_>,
 ) -> Result<InjectionInfo> {
     if req.groups.is_empty() {
@@ -746,81 +746,10 @@ pub(crate) fn inject_groups(
         }
     }
 
-    let group_id = prototype
-        .group_id
-        .context("所选 Clip 不在 Group 内；需要把原型 Clip 放进 Group")?;
-    let group_element_index = prototype
-        .group_element_index
-        .context("找不到原型 Clip 所在的 Group")?;
-
     let mut warnings = Vec::new();
     let live_set = live_set_mut(root).context("模板里找不到 <LiveSet> 节点")?;
     let tempo_automation_written = set_tempo(live_set, req.bpm, req.tempo_map, &mut warnings);
     let mut pointee_allocator = PointeeAllocator::new(live_set);
-
-    let (prototype_group, prototype_child, clip_template) = {
-        let tracks = live_set
-            .get_child("Tracks")
-            .context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
-        let group_el = tracks
-            .children
-            .get(group_element_index)
-            .and_then(XMLNode::as_element)
-            .context("无法定位原型 Group")?;
-        if track_kind(group_el) != TrackKind::Group {
-            bail!("所选 Clip 的 TrackGroupId 指向的不是 GroupTrack");
-        }
-        let child_el = tracks
-            .children
-            .get(prototype.track_element_index)
-            .and_then(XMLNode::as_element)
-            .context("无法定位原型 MIDI 轨道")?;
-        if track_kind(child_el) != TrackKind::Midi {
-            bail!("原型 Clip 不在 MIDI 轨道上");
-        }
-        let child_ids: Vec<u32> = tracks
-            .children
-            .iter()
-            .filter_map(XMLNode::as_element)
-            .filter(|track| track_kind(track) == TrackKind::Midi)
-            .filter(|track| track_group_id(track) == Some(group_id))
-            .filter_map(track_id)
-            .collect();
-        if child_ids.len() != 1 {
-            bail!(
-                "原型 Group 里必须恰好有一条 MIDI 轨道作为子轨原型，当前有 {} 条。",
-                child_ids.len()
-            );
-        }
-        let clip = navigate(child_el, &prototype.clip_path).context("无法定位原型 Clip 的 XML")?;
-        (group_el.clone(), child_el.clone(), clip.clone())
-    };
-
-    let (devices, has_instrument) = track_devices(&prototype_child);
-    let prototype_track_name = track_name(&prototype_child);
-    if !has_instrument {
-        warnings.push(format!(
-            "原型 MIDI 轨道「{}」没有检测到乐器设备（设备：{}）。",
-            prototype_track_name,
-            if devices.is_empty() {
-                "无".to_string()
-            } else {
-                devices.join(", ")
-            }
-        ));
-    } else if !looks_like_grand_piano(&prototype_track_name, &devices) {
-        warnings.push(format!(
-            "原型 MIDI 轨道「{}」没有检测到名为 Grand Piano 的设备（设备：{}）；输出会使用模板里的音色。",
-            prototype_track_name,
-            devices.join(", ")
-        ));
-    }
-
-    let write_note_ids = clip_template
-        .get_child("Notes")
-        .and_then(|notes| notes.get_child("NoteIdGenerator"))
-        .is_some();
-
     let mut next_track_id = {
         let tracks = live_set
             .get_child("Tracks")
@@ -829,15 +758,94 @@ pub(crate) fn inject_groups(
     };
 
     let mut new_tracks: Vec<XMLNode> = Vec::new();
+    let mut remove_group_ids: HashSet<u32> = HashSet::new();
+    let mut insert_at = usize::MAX;
 
     for group in req.groups {
         if group.children.is_empty() {
             continue;
         }
 
+        let prototype = &group.prototype;
+        let group_id = prototype
+            .group_id
+            .context("通道原型 Clip 不在 Group 内；需要把原型 Clip 放进 Group")?;
+        let group_element_index = prototype
+            .group_element_index
+            .context("找不到通道原型 Clip 所在的 Group")?;
+        insert_at = insert_at.min(group_element_index);
+        remove_group_ids.insert(group_id);
+
+        let (prototype_group, prototype_child, clip_template) = {
+            let tracks = live_set
+                .get_child("Tracks")
+                .context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
+            let group_el = tracks
+                .children
+                .get(group_element_index)
+                .and_then(XMLNode::as_element)
+                .context("无法定位原型 Group")?;
+            if track_kind(group_el) != TrackKind::Group {
+                bail!("通道原型 Clip 的 TrackGroupId 指向的不是 GroupTrack");
+            }
+            let child_el = tracks
+                .children
+                .get(prototype.track_element_index)
+                .and_then(XMLNode::as_element)
+                .context("无法定位原型 MIDI 轨道")?;
+            if track_kind(child_el) != TrackKind::Midi {
+                bail!("通道原型 Clip 不在 MIDI 轨道上");
+            }
+            let child_ids: Vec<u32> = tracks
+                .children
+                .iter()
+                .filter_map(XMLNode::as_element)
+                .filter(|track| track_kind(track) == TrackKind::Midi)
+                .filter(|track| track_group_id(track) == Some(group_id))
+                .filter_map(track_id)
+                .collect();
+            if child_ids.len() != 1 {
+                bail!(
+                    "通道原型 Group「{}」里必须恰好有一条 MIDI 轨道，当前有 {} 条。",
+                    group.group_name,
+                    child_ids.len()
+                );
+            }
+            let clip =
+                navigate(child_el, &prototype.clip_path).context("无法定位原型 Clip 的 XML")?;
+            (group_el.clone(), child_el.clone(), clip.clone())
+        };
+
+        let (devices, has_instrument) = track_devices(&prototype_child);
+        let prototype_track_name = track_name(&prototype_child);
+        if !has_instrument {
+            warnings.push(format!(
+                "通道 {} 的原型 MIDI 轨道「{}」没有检测到乐器设备（设备：{}）。",
+                group.group_name,
+                prototype_track_name,
+                if devices.is_empty() {
+                    "无".to_string()
+                } else {
+                    devices.join(", ")
+                }
+            ));
+        } else if !looks_like_grand_piano(&prototype_track_name, &devices) {
+            warnings.push(format!(
+                "通道 {} 的原型 MIDI 轨道「{}」没有检测到 Grand Piano（设备：{}）；输出会使用模板里的音色。",
+                group.group_name,
+                prototype_track_name,
+                devices.join(", ")
+            ));
+        }
+
+        let write_note_ids = clip_template
+            .get_child("Notes")
+            .and_then(|notes| notes.get_child("NoteIdGenerator"))
+            .is_some();
+
         let new_group_id = next_track_id;
         next_track_id += 1;
-        let mut new_group = prototype_group.clone();
+        let mut new_group = prototype_group;
         remap_pointee_ids(&mut new_group, &mut pointee_allocator);
         set_attr(&mut new_group, "Id", &new_group_id.to_string());
         set_track_name(&mut new_group, &group.group_name);
@@ -910,20 +918,13 @@ pub(crate) fn inject_groups(
         }
     }
 
+    if insert_at == usize::MAX {
+        bail!("没有可写入的通道原型 Group");
+    }
+
     {
         let tracks =
             child_mut(live_set, "Tracks").context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
-        let mut remove_ids: HashSet<u32> = HashSet::new();
-        remove_ids.insert(group_id);
-        for track in tracks.children.iter().filter_map(XMLNode::as_element) {
-            if track_group_id(track) == Some(group_id)
-                && let Some(id) = track_id(track)
-            {
-                remove_ids.insert(id);
-            }
-        }
-
-        let insert_at = group_element_index;
         let old_children = std::mem::take(&mut tracks.children);
         let mut new_children = Vec::with_capacity(old_children.len() + new_tracks.len());
         let mut inserted = false;
@@ -932,10 +933,11 @@ pub(crate) fn inject_groups(
                 new_children.append(&mut new_tracks);
                 inserted = true;
             }
-            let remove = node
-                .as_element()
-                .and_then(track_id)
-                .is_some_and(|id| remove_ids.contains(&id));
+            let remove = node.as_element().is_some_and(|track| {
+                track_id(track).is_some_and(|id| remove_group_ids.contains(&id))
+                    || track_group_id(track)
+                        .is_some_and(|group_id| remove_group_ids.contains(&group_id))
+            });
             if !remove {
                 new_children.push(node);
             }
@@ -2064,10 +2066,11 @@ mod tests {
         bends
     }
 
-    fn single_group_plan() -> Vec<GroupPlan> {
+    fn single_group_plan(prototype: RawClip) -> Vec<GroupPlan> {
         vec![GroupPlan {
             channel: 0,
             group_name: "A01".to_string(),
+            prototype,
             children: vec![ChildPlan {
                 source_track: 0,
                 track_name: "Piano".to_string(),
@@ -2086,10 +2089,9 @@ mod tests {
         assert_eq!(clips[0].info.group_name.as_deref(), Some("A01"));
         assert_eq!(clips[0].info.note_count, 1);
 
-        let groups = single_group_plan();
+        let groups = single_group_plan(clips[0].clone());
         let info = inject_groups(
             &mut root,
-            &clips[0],
             GroupInjectRequest {
                 groups: &groups,
                 clip_start_beats: 0.0,
@@ -2126,6 +2128,7 @@ mod tests {
         let groups = vec![GroupPlan {
             channel: 0,
             group_name: "A01".to_string(),
+            prototype: clips[0].clone(),
             children: vec![
                 ChildPlan {
                     source_track: 0,
@@ -2145,7 +2148,6 @@ mod tests {
         }];
         inject_groups(
             &mut root,
-            &clips[0],
             GroupInjectRequest {
                 groups: &groups,
                 clip_start_beats: 0.0,
@@ -2176,11 +2178,10 @@ mod tests {
     fn tempo_map_writes_step_automation() {
         let mut root = parse_xml(MINI_GROUP.as_bytes()).unwrap();
         let clips = enumerate_clips(&root).unwrap();
-        let groups = single_group_plan();
+        let groups = single_group_plan(clips[0].clone());
         let tempo_map = [(0.0, 60.0), (0.5, 137.0), (4.0, 120.0)];
         let info = inject_groups(
             &mut root,
-            &clips[0],
             GroupInjectRequest {
                 groups: &groups,
                 clip_start_beats: 0.0,

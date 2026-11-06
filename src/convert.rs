@@ -246,9 +246,15 @@ pub fn convert_midi_to_als(
             });
         }
 
+        let prototype = clips
+            .iter()
+            .find(|clip| clip.info.group_name.as_deref() == Some(group_name.as_str()))
+            .cloned()
+            .unwrap_or_else(|| selected.clone());
         groups.push(GroupPlan {
             channel,
             group_name,
+            prototype,
             children,
         });
     }
@@ -277,7 +283,6 @@ pub fn convert_midi_to_als(
 
     let injection = als::inject_groups(
         &mut root,
-        selected,
         GroupInjectRequest {
             groups: &groups,
             clip_start_beats: start_beats,

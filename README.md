@@ -29,6 +29,7 @@ A02 (Group)
 - 同一通道内，每个源 MIDI 轨道生成一条子 MIDI 轨道。
 - 所有子轨都从模板里的原型 MIDI 轨克隆，因此使用同一个乐器/设备链。
 - Group 从模板里的原型 Group 克隆，Group 的自动化、效果器、Mixer 设置都会保留。
+- 如果模板里已经有名为 `A01`、`A02`… 的 Group，会优先用对应 Group 作为该通道的原型；没有则使用界面里选中的默认原型。这样可以给不同通道不同乐器/效果。
 - 子轨的音频输出指向所属 Group。
 - 每个子轨生成一个 Arrangement Clip。
 - MIDI CC（包括 CC64 踏板）和 Pitch Bend 写成 Clip Envelope 自动化。
@@ -49,9 +50,11 @@ A02 (Group)
 5. 在这条 MIDI 轨道上放一个短占位 Clip（Session 或 Arrangement 都可以，长度 1 小节即可）。
 6. 如果希望每个通道使用 Group 效果器/自动化，把效果器和自动化挂在**原型 Group** 上。
 7. 保存为 `template.als`，关闭 Live。
-8. 如果模板里有其他 Group/MIDI 轨道，转换器会保留它们；建议模板只保留一个原型 Group 以得到干净输出。
+8. 如果希望每个通道使用不同乐器/Group 效果，可以在模板里再放 `A02`、`A03`… 各一个 Group（每个 Group 下仍然恰好一条 MIDI 轨 + 占位 Clip）。转换器会优先使用同名 Group 作为该通道原型。
+9. 如果模板里有其他 Group/MIDI 轨道，转换器会保留它们；建议模板只保留需要的原型 Group 以得到干净输出。
 
 > 原型 Group 下必须**恰好有一条 MIDI 轨道**作为子轨原型。转换器会按通道和源轨道克隆这条子轨。
+> 可选：`A01`、`A02`… 每个通道一个原型 Group；未提供对应名称时使用默认原型。
 
 采样率是 Live 的全局 Preferences，不保存在 `.als` 里。请先在 Live 的 Audio 设置里设好。
 
@@ -216,8 +219,8 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 
 ## 7. 当前限制
 
-- 原型 Group 下必须恰好一条 MIDI 轨道；多原型/按通道不同乐器尚未实现。
-- 所有通道默认使用同一个原型 Group 的效果器/自动化；如果每个通道需要不同效果链，需要后续支持“按 A01/A02 选择不同原型 Group”。
+- 原型 Group 下必须恰好一条 MIDI 轨道。
+- 可以按 `A01`、`A02`… 提供不同原型 Group；未提供的通道使用默认原型。原型组里的子轨数量和乐器由模板决定。
 - 写 MIDI CC 和 Pitch Bend 自动化；Channel Pressure / Poly Pressure 未写入。
 - Pitch Bend 的 14-bit 编码按通用 MIDI 处理；需要你在 Live 里验证一次中心值和上下限。
 - Program Change 被忽略；不会按音色切换分轨。
@@ -234,6 +237,7 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 - 单通道 1,228 音符、含 CC64 自动化：输出约 184 KB `.als`。
 - 5.4 万音符黑乐谱、15 个通道组：输出约 5.0 MB `.als`（57.8 MB XML），最大复音 89，3 个 Tempo 自动化点。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
+- A01/A02 不同原型测试：A01 使用 Operator 链，A02 使用 Drift 链；输出正确按通道选择不同原型，ID 校验通过。
 - `cargo test`：7 个单元测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
 
 手动集成测试：
@@ -250,8 +254,8 @@ cargo test --test manual_group -- --ignored --nocapture
 ## 9. 需要你确认
 
 1. **模板**：请提供 `template.als`：一个 Group，命名 `A01`，里面恰好一条 Grand Piano MIDI 轨 + 一个占位 Clip。
-2. **通道/乐器**：所有通道都用 Grand Piano，还是不同通道要映射不同 Live 乐器？如果要不同乐器，需要按 A01/A02 准备不同原型 Group。
-3. **Group 效果差异**：每个通道的 Group 效果器/自动化是否相同？目前所有通道克隆同一个原型 Group。
+2. **通道/乐器**：如果不同通道要不同钢琴/乐器，请在模板里放 `A01`、`A02`… 各自的原型 Group；否则统一用默认原型。
+3. **Group 效果差异**：同名 `A01`/`A02` 原型 Group 可以带不同效果器/自动化；请按每通道 CC 报告给出映射。
 4. **Pitch Bend 编码验证**：当前按 0..16383 写入；请在 Live 里看中心/上下限是否正确。Aftertouch 按你的要求不做。
 5. **Program Change**：是否需要按 Program Change 切换音色/分轨？
 6. **同通道多轨**：默认每个源 MIDI 轨道一条子轨；是否保持？
