@@ -176,7 +176,8 @@ Ableton 的 `Time` / `Duration` 使用四分音符 beat。PPQ 从 MIDI 头读取
 - 原型 Group 克隆一次，得到该通道的 Group。
 - 原型 MIDI 子轨按源轨道克隆多次，全部指向新 Group。
 - Track Id、GroupTrack Id 重新分配。
-- `AutomationTarget`、`ModulationTarget`、`Pointee`、`ControllerTargets.*` 的全局 ID 以及 `PointeeId` 引用统一重映射。
+- `AutomationTarget`、`*ModulationTarget`、`Pointee`、`ControllerTargets.*` 的全局 ID 以及 `PointeeId` 引用统一重映射。
+- `FreezeSequencer` 下的 `VolumeModulationTarget`、`GrainSizeModulationTarget` 等特殊调制目标也按全局 Pointee ID 处理，避免多轨克隆后重复。
 - `NextPointeeId` 推进到新 ID 之后。
 - `A01 Inst` 的 `AudioOutputRouting` 指向 `AudioOut/GroupTrack`；纯 MIDI 子轨没有乐器，音频输出不重要。
 - 原型 Group/子轨从输出中移除。
@@ -303,12 +304,13 @@ pub fn inspect_default_template() -> Result<TemplateReport>;
 
 - 内置模板：A01 路由 Group、1 条 `Ac Piano Upright` 乐器轨 + 1 条 MIDI 轨、无音符占位 Clip、Group 干声、Return/Send 数量与模板一致。
 - 内置模板转换：纯钢琴多通道 / 多源轨 / 空轨保留 / meta-only 轨跳过，XML/gzip 与 ID 自检通过。
+- 多通道克隆：`FreezeSequencer` 里的 `*ModulationTarget` 也参与全局 ID 重映射；15 通道工程输出无重复 PointeeId。
 - 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、全局 ID 重映射、Arrangement Clip 注入、MIDI 路由、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
 - 单通道 1,228 音符：输出约 184 KB `.als`。
 - 68 万音符黑 MIDI（5 MB 输入、15 个通道组）：release 下约 3.3 秒转换，输出约 4.2 MB `.als`，峰值内存约 1.7 GB。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
 - A01/A02 不同原型测试：A01 使用 Operator 链，A02 使用 Drift 链；输出正确按通道选择不同原型，ID 校验通过。
-- `cargo test`：8 个单元测试 + 3 个内置模板集成测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
+- `cargo test`：9 个单元测试 + 3 个内置模板集成测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
 
 手动集成测试：
 

@@ -789,7 +789,7 @@ fn collect_pointee_ids_for_validation(
         && let Some(id) = attr(element, "Id").and_then(|value| value.parse::<u64>().ok())
     {
         if !seen.insert(id) {
-            bail!("全局 Pointee/AutomationTarget Id 重复：{}", id);
+            bail!("全局 Pointee/AutomationTarget Id 重复：{id}（Live 会拒绝加载）");
         }
         *max = (*max).max(id);
     }
@@ -1378,9 +1378,9 @@ fn collect_max_pointee_id(element: &Element, max: &mut u64) {
 }
 
 fn is_pointee_holder(element: &Element) -> bool {
-    element.name == "AutomationTarget"
-        || element.name == "ModulationTarget"
-        || element.name == "Pointee"
+    element.name == "Pointee"
+        || element.name.ends_with("AutomationTarget")
+        || element.name.ends_with("ModulationTarget")
         || element.name.starts_with("ControllerTargets.")
 }
 
@@ -2645,6 +2645,93 @@ mod tests {
         assert_eq!(xml.matches("<MidiClip").count(), 1);
         assert_eq!(xml.matches("<MidiNoteEvent").count(), 2);
         assert!(xml.contains("Empty"));
+    }
+
+    #[test]
+    fn freeze_sequencer_modulation_targets_get_unique_ids() {
+        let mut root = parse_xml(MINI_GROUP.as_bytes()).unwrap();
+        {
+            let live_set = live_set_mut(&mut root).unwrap();
+            let tracks = live_set.get_mut_child("Tracks").unwrap();
+            let track = tracks
+                .children
+                .iter_mut()
+                .filter_map(XMLNode::as_mut_element)
+                .find(|element| element.name == "MidiTrack" && attr(element, "Id") == Some("1"))
+                .unwrap();
+            let chain = track.get_mut_child("DeviceChain").unwrap();
+            let mut freeze = Element::new("FreezeSequencer");
+            for (tag, id) in [
+                ("VolumeModulationTarget", "777"),
+                ("GrainSizeModulationTarget", "778"),
+            ] {
+                let mut target = Element::new(tag);
+                target.attributes.insert("Id".into(), id.into());
+                freeze.children.push(XMLNode::Element(target));
+            }
+            chain.children.push(XMLNode::Element(freeze));
+        }
+
+        let clips = enumerate_clips(&root).unwrap();
+        let groups = vec![GroupPlan {
+            channel: 0,
+            group_name: "A01".to_string(),
+            prototype: clips[0].clone(),
+            children: vec![
+                ChildPlan {
+                    source_track: 0,
+                    track_name: "Piano A".to_string(),
+                    clip_name: "A".to_string(),
+                    notes: notes(),
+                    clip_length_beats: 4.0,
+                },
+                ChildPlan {
+                    source_track: 1,
+                    track_name: "Piano B".to_string(),
+                    clip_name: "B".to_string(),
+                    notes: notes(),
+                    clip_length_beats: 4.0,
+                },
+            ],
+        }];
+        inject_groups(
+            &mut root,
+            GroupInjectRequest {
+                groups: &groups,
+                clip_start_beats: 0.0,
+                bpm: 120.0,
+                time_signature: Some((4, 4)),
+                tempo_map: None,
+                controllers: &controllers(),
+                pitch_bends: &pitch_bends(),
+                ppq: 480,
+                write_pitch_bend: true,
+                write_cc_automation: false,
+                strip_instrument_effects: true,
+            },
+        )
+        .unwrap();
+
+        validate_live_set(&root).unwrap();
+
+        let mut ids = Vec::new();
+        fn walk(element: &Element, ids: &mut Vec<String>) {
+            if matches!(
+                element.name.as_str(),
+                "VolumeModulationTarget" | "GrainSizeModulationTarget"
+            ) && let Some(id) = attr(element, "Id")
+            {
+                ids.push(id.to_string());
+            }
+            for child in element.children.iter().filter_map(XMLNode::as_element) {
+                walk(child, ids);
+            }
+        }
+        walk(&root, &mut ids);
+        assert_eq!(ids.len(), 4);
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), 4);
     }
 
     #[test]
