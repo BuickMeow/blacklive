@@ -8,7 +8,7 @@ use flate2::read::MultiGzDecoder;
 use flate2::{Compression, GzBuilder};
 use xmltree::{Element, EmitterConfig, XMLNode};
 
-use crate::midi::{ControllerEvent, Note};
+use crate::midi::{ControllerEvent, Note, PitchBendEvent};
 
 const INSTRUMENT_TAGS: &[&str] = &[
     "InstrumentGroupDevice",
@@ -171,8 +171,10 @@ pub(crate) struct GroupInjectRequest<'a> {
     pub tempo_map: Option<&'a [(f64, f64)]>,
     /// channel -> controller number -> absolute-tick events.
     pub controllers: &'a BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
+    /// channel -> raw 14-bit pitch bend events.
+    pub pitch_bends: &'a BTreeMap<u8, Vec<PitchBendEvent>>,
     pub ppq: u16,
-    pub write_cc_automation: bool,
+    pub write_midi_automation: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -880,11 +882,12 @@ pub(crate) fn inject_groups(
                 write_note_ids,
             )?;
             clear_clip_envelopes(new_clip);
-            if req.write_cc_automation {
-                add_cc_envelopes(
+            if req.write_midi_automation {
+                add_midi_automation(
                     new_clip,
                     group.channel,
                     req.controllers,
+                    req.pitch_bends,
                     &targets,
                     req.ppq,
                     child.clip_length_beats,
@@ -1291,41 +1294,104 @@ fn controller_targets(track: &Element) -> BTreeMap<u8, String> {
     targets
 }
 
-fn add_cc_envelopes(
+#[allow(clippy::too_many_arguments)]
+fn add_midi_automation(
     clip: &mut Element,
     channel: u8,
     controllers: &BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
+    pitch_bends: &BTreeMap<u8, Vec<PitchBendEvent>>,
     targets: &BTreeMap<u8, String>,
     ppq: u16,
     length: f64,
     warnings: &mut Vec<String>,
 ) -> Result<()> {
-    let Some(channel_controllers) = controllers.get(&channel) else {
-        return Ok(());
-    };
-
     let mut next_envelope_id = next_clip_envelope_id(clip);
-    for (controller, events) in channel_controllers {
-        let Some(target_id) = targets.get(controller) else {
-            if *controller == 64 {
-                warnings.push(format!(
-                    "通道 A{:02} 的轨道没有 ControllerTargets.{controller}，CC64 未写入。",
-                    channel + 1
-                ));
-            }
-            continue;
-        };
-        let Some(points) = controller_points(events, ppq, length) else {
-            continue;
+
+    if let Some(channel_controllers) = controllers.get(&channel) {
+        for (controller, events) in channel_controllers {
+            let Some(target_id) = targets.get(controller) else {
+                if *controller == 64 {
+                    warnings.push(format!(
+                        "通道 A{:02} 的轨道没有 ControllerTargets.{controller}，CC64 未写入。",
+                        channel + 1
+                    ));
+                }
+                continue;
+            };
+            let Some(points) = controller_points(events, ppq, length) else {
+                continue;
+            };
+            let envelope = build_clip_envelope(next_envelope_id, target_id, &points);
+            next_envelope_id += 1;
+            push_clip_envelope(clip, envelope);
+        }
+    }
+
+    if let Some(events) = pitch_bends.get(&channel)
+        && let Some(points) = pitch_bend_points(events, ppq, length)
+    {
+        let Some(target_id) = targets.get(&128) else {
+            warnings.push(format!(
+                "通道 A{:02} 的轨道没有 ControllerTargets.128，Pitch Bend 未写入。",
+                channel + 1
+            ));
+            return Ok(());
         };
         let envelope = build_clip_envelope(next_envelope_id, target_id, &points);
-        next_envelope_id += 1;
-
-        let envelopes = ensure_child(clip, "Envelopes");
-        let inner = ensure_child(envelopes, "Envelopes");
-        inner.children.push(XMLNode::Element(envelope));
+        push_clip_envelope(clip, envelope);
     }
+
     Ok(())
+}
+
+fn push_clip_envelope(clip: &mut Element, envelope: Element) {
+    let envelopes = ensure_child(clip, "Envelopes");
+    let inner = ensure_child(envelopes, "Envelopes");
+    inner.children.push(XMLNode::Element(envelope));
+}
+
+fn pitch_bend_points(events: &[PitchBendEvent], ppq: u16, length: f64) -> Option<Vec<(f64, f64)>> {
+    let mut by_tick: BTreeMap<u64, u16> = BTreeMap::new();
+    for event in events {
+        by_tick.insert(event.tick, event.value);
+    }
+
+    let mut initial = 8192.0;
+    let mut changes = Vec::new();
+    for (tick, value) in by_tick {
+        let beat = tick as f64 / ppq as f64;
+        if beat > length {
+            continue;
+        }
+        if beat == 0.0 {
+            initial = value as f64;
+        } else {
+            changes.push((beat, value as f64));
+        }
+    }
+
+    if changes.is_empty() {
+        return if initial == 8192.0 {
+            None
+        } else {
+            Some(vec![(-63_072_000.0, initial)])
+        };
+    }
+
+    let mut points = vec![(-63_072_000.0, initial)];
+    let mut current = initial;
+    for (beat, value) in changes {
+        if value == current {
+            continue;
+        }
+        points.push((beat, value));
+        current = value;
+    }
+    if points.len() <= 1 {
+        None
+    } else {
+        Some(points)
+    }
 }
 
 fn controller_points(events: &[ControllerEvent], ppq: u16, length: f64) -> Option<Vec<(f64, f64)>> {
@@ -1908,6 +1974,7 @@ mod tests {
      <Mixer><Pointee Id="400" /></Mixer>
      <MidiControllers>
       <ControllerTargets.64 Id="900"><LockEnvelope Value="0" /></ControllerTargets.64>
+      <ControllerTargets.128 Id="898"><LockEnvelope Value="0" /></ControllerTargets.128>
      </MidiControllers>
     </DeviceChain>
     <ClipSlotList>
@@ -1975,6 +2042,28 @@ mod tests {
         controllers
     }
 
+    fn pitch_bends() -> BTreeMap<u8, Vec<PitchBendEvent>> {
+        let mut bends = BTreeMap::new();
+        bends.insert(
+            0,
+            vec![
+                PitchBendEvent {
+                    tick: 0,
+                    value: 8192,
+                },
+                PitchBendEvent {
+                    tick: 480,
+                    value: 16383,
+                },
+                PitchBendEvent {
+                    tick: 960,
+                    value: 8192,
+                },
+            ],
+        );
+        bends
+    }
+
     fn single_group_plan() -> Vec<GroupPlan> {
         vec![GroupPlan {
             channel: 0,
@@ -2008,8 +2097,9 @@ mod tests {
                 time_signature: Some((4, 4)),
                 tempo_map: None,
                 controllers: &controllers(),
+                pitch_bends: &pitch_bends(),
                 ppq: 480,
-                write_cc_automation: true,
+                write_midi_automation: true,
             },
         )
         .unwrap();
@@ -2024,7 +2114,9 @@ mod tests {
         assert_eq!(xml.matches("<GroupTrack ").count(), 1);
         assert_eq!(xml.matches("<MidiTrack").count(), 1);
         assert_eq!(xml.matches("<MidiNoteEvent").count(), 2);
-        assert_eq!(xml.matches("<ClipEnvelope").count(), 1);
+        assert_eq!(xml.matches("<ClipEnvelope").count(), 2);
+        assert!(xml.contains("ControllerTargets.128"));
+        assert!(xml.contains("Value=\"16383\""));
     }
 
     #[test]
@@ -2061,8 +2153,9 @@ mod tests {
                 time_signature: Some((4, 4)),
                 tempo_map: None,
                 controllers: &controllers(),
+                pitch_bends: &pitch_bends(),
                 ppq: 480,
-                write_cc_automation: true,
+                write_midi_automation: true,
             },
         )
         .unwrap();
@@ -2073,7 +2166,7 @@ mod tests {
         assert_eq!(xml.matches("<GroupTrack ").count(), 1);
         assert_eq!(xml.matches("<MidiTrack").count(), 2);
         assert_eq!(xml.matches("<MidiNoteEvent").count(), 4);
-        assert_eq!(xml.matches("<ClipEnvelope").count(), 2);
+        assert_eq!(xml.matches("<ClipEnvelope").count(), 4);
         assert!(xml.contains("Piano A"));
         assert!(xml.contains("Piano B"));
         assert_eq!(xml.matches("<TrackGroupId Value=\"").count(), 3);
@@ -2095,8 +2188,9 @@ mod tests {
                 time_signature: Some((4, 4)),
                 tempo_map: Some(&tempo_map),
                 controllers: &controllers(),
+                pitch_bends: &pitch_bends(),
                 ppq: 480,
-                write_cc_automation: false,
+                write_midi_automation: false,
             },
         )
         .unwrap();

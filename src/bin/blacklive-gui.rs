@@ -41,7 +41,7 @@ struct App {
     trim_same_pitch: bool,
     clip_name: String,
     split_source_tracks: bool,
-    write_cc_automation: bool,
+    write_midi_automation: bool,
 
     template_report: Option<TemplateReport>,
     selected_clip: Option<usize>,
@@ -70,7 +70,7 @@ impl App {
             trim_same_pitch: false,
             clip_name: String::new(),
             split_source_tracks: true,
-            write_cc_automation: true,
+            write_midi_automation: true,
             template_report: None,
             selected_clip: None,
             midi_stats: None,
@@ -255,7 +255,7 @@ impl App {
             clip_name: non_empty(&self.clip_name),
             trim_same_pitch: self.trim_same_pitch,
             split_source_tracks: self.split_source_tracks,
-            write_cc_automation: self.write_cc_automation,
+            write_midi_automation: self.write_midi_automation,
         };
 
         self.set_status("正在转换…");
@@ -456,8 +456,23 @@ impl App {
                 ui.label(format!("ch{}: {count}", channel));
             }
         });
-        if stats.sustain_event_count > 0 {
-            ui.label(format!("CC64: {}", stats.sustain_event_count));
+        for channel in 0u8..=15 {
+            let mut parts = Vec::new();
+            if let Some(controllers) = stats.controllers.get(&channel) {
+                for (controller, events) in controllers {
+                    if !events.is_empty() {
+                        parts.push(format!("CC{controller}×{}", events.len()));
+                    }
+                }
+            }
+            if let Some(bends) = stats.pitch_bends.get(&channel)
+                && !bends.is_empty()
+            {
+                parts.push(format!("PB×{}", bends.len()));
+            }
+            if !parts.is_empty() {
+                ui.label(format!("ch{channel}: {}", parts.join("  ")));
+            }
         }
         if stats.tempo_map.len() > 1 {
             ui.label(format!("Tempo 点: {}", stats.tempo_map.len()));
@@ -507,7 +522,7 @@ impl App {
                 ui.label("Clip 名称");
                 ui.add(egui::TextEdit::singleline(&mut self.clip_name).desired_width(150.0));
                 ui.checkbox(&mut self.split_source_tracks, "按源轨道拆分");
-                ui.checkbox(&mut self.write_cc_automation, "CC 自动化");
+                ui.checkbox(&mut self.write_midi_automation, "MIDI 自动化");
                 ui.end_row();
             });
     }

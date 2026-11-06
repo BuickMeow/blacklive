@@ -32,8 +32,8 @@ pub struct ConvertOptions {
     pub trim_same_pitch: bool,
     /// Create one child track per source MIDI track inside each channel group.
     pub split_source_tracks: bool,
-    /// Write MIDI controllers (including CC64) as clip envelope automation.
-    pub write_cc_automation: bool,
+    /// Write MIDI controllers and pitch bend as clip envelope automation.
+    pub write_midi_automation: bool,
 }
 
 impl Default for ConvertOptions {
@@ -51,7 +51,7 @@ impl Default for ConvertOptions {
             clip_name: None,
             trim_same_pitch: false,
             split_source_tracks: true,
-            write_cc_automation: true,
+            write_midi_automation: true,
         }
     }
 }
@@ -285,8 +285,9 @@ pub fn convert_midi_to_als(
             time_signature,
             tempo_map,
             controllers: &parsed.stats.controllers,
+            pitch_bends: &parsed.stats.pitch_bends,
             ppq: parsed.stats.ppq,
-            write_cc_automation: opts.write_cc_automation,
+            write_midi_automation: opts.write_midi_automation,
         },
     )?;
     warnings.extend(injection.warnings);

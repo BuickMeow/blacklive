@@ -33,6 +33,14 @@ pub struct ControllerEvent {
 }
 
 #[derive(Clone, Debug)]
+pub struct PitchBendEvent {
+    /// Absolute MIDI tick.
+    pub tick: u64,
+    /// Raw 14-bit value, 0..=16383; 8192 is center.
+    pub value: u16,
+}
+
+#[derive(Clone, Debug)]
 pub struct TimeSignatureInfo {
     pub tick: u64,
     pub numerator: u8,
@@ -56,6 +64,8 @@ pub struct MidiStats {
     pub track_names_by_index: BTreeMap<u16, String>,
     /// channel -> controller number -> absolute-tick events.
     pub controllers: BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
+    /// channel -> raw 14-bit pitch bend events.
+    pub pitch_bends: BTreeMap<u8, Vec<PitchBendEvent>>,
     /// Number of paired notes before channel/filter/transpose processing.
     pub note_count: usize,
     pub notes_per_channel: BTreeMap<u8, usize>,
@@ -92,6 +102,7 @@ impl Default for MidiStats {
             track_names: Vec::new(),
             track_names_by_index: BTreeMap::new(),
             controllers: BTreeMap::new(),
+            pitch_bends: BTreeMap::new(),
             note_count: 0,
             notes_per_channel: BTreeMap::new(),
             programs: BTreeMap::new(),
@@ -246,8 +257,16 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
                                 .or_default()
                                 .push(ControllerEvent { tick, value });
                         }
-                        MidiMessage::PitchBend { .. } => {
+                        MidiMessage::PitchBend { bend } => {
                             stats.pitch_bend_event_count += 1;
+                            stats
+                                .pitch_bends
+                                .entry(channel)
+                                .or_default()
+                                .push(PitchBendEvent {
+                                    tick,
+                                    value: bend.0.as_int(),
+                                });
                         }
                         MidiMessage::ProgramChange { program } => {
                             stats
@@ -323,12 +342,6 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
         ));
     }
 
-    if stats.pitch_bend_event_count > 0 {
-        stats.warnings.push(format!(
-            "检测到 {} 个 Pitch Bend 事件；当前版本忽略弯音。",
-            stats.pitch_bend_event_count
-        ));
-    }
     if stats.programs.values().any(|set| !set.is_empty()) {
         stats.warnings.push(
             "检测到 Program Change；当前按通道分组，Program Change 不会切换乐器。".to_string(),

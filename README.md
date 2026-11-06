@@ -31,7 +31,7 @@ A02 (Group)
 - Group 从模板里的原型 Group 克隆，Group 的自动化、效果器、Mixer 设置都会保留。
 - 子轨的音频输出指向所属 Group。
 - 每个子轨生成一个 Arrangement Clip。
-- MIDI CC（包括 CC64 踏板）写成 Clip Envelope 自动化。
+- MIDI CC（包括 CC64 踏板）和 Pitch Bend 写成 Clip Envelope 自动化。
 - MIDI Tempo Map 写成 Master Tempo 自动化。
 
 默认 `按源轨道拆分` 开启。如果你想把同一通道的所有源轨道合并成一条子轨，可以在界面关闭它。
@@ -94,9 +94,9 @@ cargo run --release --bin blacklive
 - 选择 MIDI / 模板 `.als` / 输出 `.als`
 - 拖拽 `.mid` / `.als` 到窗口
 - 分析模板，列出 Group、轨道、Clip
-- 解析 MIDI，显示音符数、通道、PPQ、BPM、最大复音、变速点、CC 数量
+- 解析 MIDI，显示音符数、通道、PPQ、BPM、最大复音、变速点、每通道 CC/Pitch Bend 数量
 - 通道过滤、移调、BPM 覆盖、最短时值、尾部留白、起点、同音高重叠处理
-- 按源轨道拆分、CC 自动化开关
+- 按源轨道拆分、MIDI 自动化开关
 - 转换后在 Live 中打开、打开输出文件夹
 
 ---
@@ -119,14 +119,16 @@ Ableton 的 `Time` / `Duration` 使用四分音符 beat。PPQ 从 MIDI 头读取
 - 同音高重叠默认保留，可勾选截短前音。
 - 没有 Note Off 的音符丢弃，避免超长挂音。
 
-### CC 自动化
+### MIDI / CC 自动化
 
 - 解析所有 MIDI CC（0–127），按通道保存。
 - 每个子轨 Clip 写入对应的 `ClipEnvelope` 自动化。
 - `ControllerTargets.N` 的 ID 在克隆子轨时会重映射；ClipEnvelope 指向重映射后的 ID。
 - 同一时间点的重复 CC 只保留最后一个；值不变时不重复写事件。
 - CC 变化用同一时间点的两个 `FloatEvent`（旧值 + 新值）写成阶跃，避免 Live 插值成渐变。
-- 当前 **不写 Pitch Bend / Channel Pressure / Poly Pressure**；只写 CC。
+- Pitch Bend 使用 `ControllerTargets.128`，按 MIDI 原始 14-bit 值 0..16383（中心 8192）写线性包络。
+- 当前 **不写 Channel Pressure / Poly Pressure**（Aftertouch 按你的要求不做）。
+- 同一通道的 Pitch Bend 会复制到该通道的每条子轨 Clip。
 
 ### Group / 子轨克隆
 
@@ -216,7 +218,8 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 
 - 原型 Group 下必须恰好一条 MIDI 轨道；多原型/按通道不同乐器尚未实现。
 - 所有通道默认使用同一个原型 Group 的效果器/自动化；如果每个通道需要不同效果链，需要后续支持“按 A01/A02 选择不同原型 Group”。
-- 只写 MIDI CC 自动化；Pitch Bend / Channel Pressure / Poly Pressure 尚未写入。
+- 写 MIDI CC 和 Pitch Bend 自动化；Channel Pressure / Poly Pressure 未写入。
+- Pitch Bend 的 14-bit 编码按通用 MIDI 处理；需要你在 Live 里验证一次中心值和上下限。
 - Program Change 被忽略；不会按音色切换分轨。
 - MIDI Port 被忽略；只按 channel 分组。
 - 模板里其他 Group/轨道会保留，建议使用干净模板。
@@ -227,7 +230,7 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 
 ## 8. 已验证
 
-- 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、ID 重映射、Arrangement Clip 注入、CC64 Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
+- 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、ID 重映射、Arrangement Clip 注入、CC64 Clip 自动化、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
 - 单通道 1,228 音符、含 CC64 自动化：输出约 184 KB `.als`。
 - 5.4 万音符黑乐谱、15 个通道组：输出约 5.0 MB `.als`（57.8 MB XML），最大复音 89，3 个 Tempo 自动化点。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
@@ -249,7 +252,7 @@ cargo test --test manual_group -- --ignored --nocapture
 1. **模板**：请提供 `template.als`：一个 Group，命名 `A01`，里面恰好一条 Grand Piano MIDI 轨 + 一个占位 Clip。
 2. **通道/乐器**：所有通道都用 Grand Piano，还是不同通道要映射不同 Live 乐器？如果要不同乐器，需要按 A01/A02 准备不同原型 Group。
 3. **Group 效果差异**：每个通道的 Group 效果器/自动化是否相同？目前所有通道克隆同一个原型 Group。
-4. **Pitch Bend / 其他非 CC 自动化**：是否需要写入 Pitch Bend、Channel Pressure、Poly Pressure？
+4. **Pitch Bend 编码验证**：当前按 0..16383 写入；请在 Live 里看中心/上下限是否正确。Aftertouch 按你的要求不做。
 5. **Program Change**：是否需要按 Program Change 切换音色/分轨？
 6. **同通道多轨**：默认每个源 MIDI 轨道一条子轨；是否保持？
 7. **Live 版本**：只自用 12.3，还是需要兼容 11/10？如果要兼容 10，请提供一个 Live 10 模板。
