@@ -42,6 +42,7 @@ struct App {
     clip_name: String,
     split_source_tracks: bool,
     write_midi_automation: bool,
+    strip_instrument_effects: bool,
 
     template_report: Option<TemplateReport>,
     selected_clip: Option<usize>,
@@ -71,6 +72,7 @@ impl App {
             clip_name: String::new(),
             split_source_tracks: true,
             write_midi_automation: true,
+            strip_instrument_effects: true,
             template_report: None,
             selected_clip: None,
             midi_stats: None,
@@ -256,6 +258,7 @@ impl App {
             trim_same_pitch: self.trim_same_pitch,
             split_source_tracks: self.split_source_tracks,
             write_midi_automation: self.write_midi_automation,
+            strip_instrument_effects: self.strip_instrument_effects,
         };
 
         self.set_status("正在转换…");
@@ -527,6 +530,13 @@ impl App {
                 ui.add(egui::TextEdit::singleline(&mut self.clip_name).desired_width(150.0));
                 ui.checkbox(&mut self.split_source_tracks, "按源轨道拆分");
                 ui.checkbox(&mut self.write_midi_automation, "MIDI 自动化");
+                ui.end_row();
+
+                ui.label("");
+                ui.checkbox(
+                    &mut self.strip_instrument_effects,
+                    "关闭乐器内 Reverb/Delay",
+                );
                 ui.end_row();
             });
     }

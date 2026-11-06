@@ -63,6 +63,7 @@ A02 (Group)
 > 旧式模板也可以：Group 里只有 1 条“乐器 + Clip”轨；转换器会退化为每子轨一个乐器。
 > 可选：`A01`、`A02`… 每个通道一个原型 Group；未提供对应名称时使用默认原型。
 > `luyou.als` 已经包含 `Ac Piano Upright` + 一条 MIDI 轨路由；把这两条轨 `Cmd+G` 成 `A01` 并保存即可作为路由模板。
+> 转换器默认关闭原型乐器内部的 Reverb；如果要保留，界面里关掉「关闭乐器内 Reverb/Delay」。
 
 采样率是 Live 的全局 Preferences，不保存在 `.als` 里。请先在 Live 的 Audio 设置里设好。
 
@@ -234,7 +235,7 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 - `10-Childhood Home Piano`（3 个 MultiSampler、92 个 SampleRef、踏板/按键噪声、混响）、`7-Abyss Keys`（双层 Wavetable + 效果）、`13-Exo Keys`（双层 Wavetable + Delay/Reverb）在 1 万音符以上会明显更吃 CPU。
 - 每个 Group 包含该通道的所有源 MIDI 子轨，但只保留一个钢琴实例 `A01 Inst`；所有 MIDI 子轨通过 `MIDI To` 路由到它。这样 CPU 不随子轨数增长。
 - 旧式模板（每条子轨一个乐器）仍兼容，但不推荐高密度黑乐谱使用。
-- 黑乐谱优先把 Reverb/Delay 放到 Group 或共享 Return，不要在每条子轨里各克隆一个。
+- 黑乐谱优先把 Reverb/Delay 放到 Group 或共享 Return，不要在每条子轨里各克隆一个。转换器默认会关闭原型乐器内部的 Reverb/Delay/Chorus/Echo，Group/Return 效果保留。
 - 建议给钢琴设置合适的复音上限/voice stealing，并考虑在最终播放时 freeze/flatten。
 - 如果所有通道都是 program 0，用一个默认钢琴原型就够；需要每通道不同音色时再做 A01/A02 原型。
 

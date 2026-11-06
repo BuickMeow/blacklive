@@ -34,6 +34,8 @@ pub struct ConvertOptions {
     pub split_source_tracks: bool,
     /// Write MIDI controllers and pitch bend as clip envelope automation.
     pub write_midi_automation: bool,
+    /// Bypass Reverb/Delay/Chorus/Echo devices inside the cloned instrument.
+    pub strip_instrument_effects: bool,
 }
 
 impl Default for ConvertOptions {
@@ -52,6 +54,7 @@ impl Default for ConvertOptions {
             trim_same_pitch: false,
             split_source_tracks: true,
             write_midi_automation: true,
+            strip_instrument_effects: true,
         }
     }
 }
@@ -293,6 +296,7 @@ pub fn convert_midi_to_als(
             pitch_bends: &parsed.stats.pitch_bends,
             ppq: parsed.stats.ppq,
             write_midi_automation: opts.write_midi_automation,
+            strip_instrument_effects: opts.strip_instrument_effects,
         },
     )?;
     warnings.extend(injection.warnings);

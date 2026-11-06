@@ -179,6 +179,7 @@ pub(crate) struct GroupInjectRequest<'a> {
     pub pitch_bends: &'a BTreeMap<u8, Vec<PitchBendEvent>>,
     pub ppq: u16,
     pub write_midi_automation: bool,
+    pub strip_instrument_effects: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -993,12 +994,21 @@ pub(crate) fn inject_groups(
         }
         let effects = track_effect_names(instrument_track);
         if !effects.is_empty() {
-            warnings.push(format!(
-                "通道 {} 的原型乐器轨「{}」包含 Reverb/Delay（{}）；黑乐谱建议在模板里关掉并移到 Group 或共享 Return。",
-                group.group_name,
-                prototype_track_name,
-                effects.join(", ")
-            ));
+            if req.strip_instrument_effects {
+                warnings.push(format!(
+                    "通道 {} 的原型乐器轨「{}」内的 Reverb/Delay 已关闭（{}）；Group/Return 效果保留。",
+                    group.group_name,
+                    prototype_track_name,
+                    effects.join(", ")
+                ));
+            } else {
+                warnings.push(format!(
+                    "通道 {} 的原型乐器轨「{}」包含 Reverb/Delay（{}）；黑乐谱建议在模板里关掉并移到 Group 或共享 Return。",
+                    group.group_name,
+                    prototype_track_name,
+                    effects.join(", ")
+                ));
+            }
         }
 
         let new_group_id = next_track_id;
@@ -1029,6 +1039,9 @@ pub(crate) fn inject_groups(
                     set_track_unfolded(&mut new_child, true);
                     set_group_output(&mut new_child);
                     set_record_arm(&mut new_child, false);
+                    if req.strip_instrument_effects {
+                        bypass_instrument_effects(&mut new_child);
+                    }
 
                     let targets = controller_targets(&new_child);
                     strip_midi_clips(&mut new_child);
@@ -1092,6 +1105,9 @@ pub(crate) fn inject_groups(
                 set_track_unfolded(&mut new_instrument, true);
                 set_group_output(&mut new_instrument);
                 set_record_arm(&mut new_instrument, false);
+                if req.strip_instrument_effects {
+                    bypass_instrument_effects(&mut new_instrument);
+                }
                 strip_midi_clips(&mut new_instrument);
                 new_tracks.push(XMLNode::Element(new_instrument));
 
@@ -2028,6 +2044,39 @@ fn track_effect_names(track: &Element) -> Vec<String> {
     names
 }
 
+fn bypass_instrument_effects(track: &mut Element) {
+    const EFFECT_TAGS: &[&str] = &[
+        "Reverb",
+        "HybridReverb",
+        "Delay",
+        "FilterDelay",
+        "Echo",
+        "Chorus2",
+    ];
+    fn walk(element: &mut Element) {
+        if EFFECT_TAGS.contains(&element.name.as_str()) {
+            let on_tag = if element.get_child("On").is_some() {
+                "On"
+            } else {
+                "DeviceOn"
+            };
+            if let Some(on) = element.get_mut_child(on_tag)
+                && let Some(manual) = on.get_mut_child("Manual")
+            {
+                manual.attributes.insert("Value".into(), "false".into());
+            }
+        }
+        for child in element
+            .children
+            .iter_mut()
+            .filter_map(XMLNode::as_mut_element)
+        {
+            walk(child);
+        }
+    }
+    walk(track);
+}
+
 fn track_devices(track: &Element) -> (Vec<String>, bool) {
     let Some(outer) = track.get_child("DeviceChain") else {
         return (Vec::new(), false);
@@ -2400,6 +2449,7 @@ mod tests {
                 pitch_bends: &pitch_bends(),
                 ppq: 480,
                 write_midi_automation: true,
+                strip_instrument_effects: true,
             },
         )
         .unwrap();
@@ -2456,6 +2506,7 @@ mod tests {
                 pitch_bends: &pitch_bends(),
                 ppq: 480,
                 write_midi_automation: true,
+                strip_instrument_effects: true,
             },
         )
         .unwrap();
@@ -2490,6 +2541,7 @@ mod tests {
                 pitch_bends: &pitch_bends(),
                 ppq: 480,
                 write_midi_automation: false,
+                strip_instrument_effects: true,
             },
         )
         .unwrap();
