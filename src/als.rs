@@ -567,6 +567,12 @@ fn build_report(path: &Path, root: &Element, clips: &[RawClip]) -> Result<Templa
             }
         }
     }
+    let minor_version = attr(root, "MinorVersion").unwrap_or("?");
+    if !minor_version.starts_with("12.") {
+        warnings.push(format!(
+            "当前只在 Live 12.3 模板上验证；模板版本 {minor_version} 请先用小样测试。"
+        ));
+    }
     if bpm.is_none() {
         warnings.push("模板里找不到全局 Tempo（MainTrack/DeviceChain/Mixer/Tempo）。".into());
     }
@@ -574,7 +580,7 @@ fn build_report(path: &Path, root: &Element, clips: &[RawClip]) -> Result<Templa
     Ok(TemplateReport {
         path: path.to_path_buf(),
         major_version: attr(root, "MajorVersion").unwrap_or("?").to_string(),
-        minor_version: attr(root, "MinorVersion").unwrap_or("?").to_string(),
+        minor_version: minor_version.to_string(),
         creator: attr(root, "Creator").unwrap_or("?").to_string(),
         revision: attr(root, "Revision").unwrap_or("?").to_string(),
         bpm,
@@ -793,6 +799,7 @@ pub(crate) fn inject_groups(
             set_track_group_id(&mut new_child, new_group_id as i64);
             set_linked_track_group_id(&mut new_child, -1);
             set_track_unfolded(&mut new_child, true);
+            set_group_output(&mut new_child);
 
             let targets = controller_targets(&new_child);
             strip_midi_clips(&mut new_child);
@@ -905,6 +912,13 @@ fn set_track_unfolded(track: &mut Element, unfolded: bool) {
         "TrackUnfolded",
         if unfolded { "true" } else { "false" },
     );
+}
+
+fn set_group_output(track: &mut Element) {
+    if let Some(routing) = find_descendant_mut(track, "AudioOutputRouting") {
+        set_child_value(routing, "Target", "AudioOut/GroupTrack");
+        set_child_value(routing, "UpperDisplayString", "Group");
+    }
 }
 
 fn max_track_id(tracks: &Element) -> u32 {
@@ -1270,7 +1284,11 @@ fn controller_points(events: &[ControllerEvent], ppq: u16, length: f64) -> Optio
     }
 
     if changes.is_empty() {
-        return None;
+        return if initial == 0.0 {
+            None
+        } else {
+            Some(vec![(-63_072_000.0, initial)])
+        };
     }
 
     let mut points = vec![(-63_072_000.0, initial)];

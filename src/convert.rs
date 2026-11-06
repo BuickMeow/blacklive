@@ -171,7 +171,7 @@ pub fn convert_midi_to_als(
     let tempo_map_beats: Vec<(f64, f64)> = if opts.bpm_override.is_none() {
         let mut points = Vec::with_capacity(parsed.stats.tempo_map.len());
         for event in &parsed.stats.tempo_map {
-            let beat = event.tick as f64 / parsed.stats.ppq as f64;
+            let beat = start_beats + event.tick as f64 / parsed.stats.ppq as f64;
             if points
                 .last()
                 .is_some_and(|(_, previous): &(f64, f64)| *previous == event.bpm)

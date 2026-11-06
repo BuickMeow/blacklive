@@ -570,6 +570,11 @@ impl App {
                     ));
                 }
             });
+            ui.horizontal_wrapped(|ui| {
+                for group in &result.groups {
+                    ui.label(format!("{} · {} 轨", group.name, group.tracks.len()));
+                }
+            });
         }
 
         if !self.log.is_empty() {
