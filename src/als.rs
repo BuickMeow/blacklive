@@ -122,6 +122,8 @@ pub struct TrackInfo {
     pub group_name: Option<String>,
     pub devices: Vec<String>,
     pub has_instrument: bool,
+    pub midi_target: Option<u32>,
+    pub routed_to_instrument: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -475,6 +477,7 @@ fn build_report(path: &Path, root: &Element, clips: &[RawClip]) -> Result<Templa
     }
 
     let mut tracks = Vec::new();
+    let mut midi_targets = Vec::new();
     let mut track_index = 0usize;
     let mut midi_track_count = 0usize;
     let mut group_count = 0usize;
@@ -498,13 +501,26 @@ fn build_report(path: &Path, root: &Element, clips: &[RawClip]) -> Result<Templa
             group_name,
             devices,
             has_instrument,
+            midi_target: None,
+            routed_to_instrument: false,
         });
+        midi_targets.push(midi_routed_track_id(track));
         match kind {
             TrackKind::Midi => midi_track_count += 1,
             TrackKind::Group => group_count += 1,
             TrackKind::Return | TrackKind::Other => {}
         }
         track_index += 1;
+    }
+    let instrument_ids: HashSet<u32> = tracks
+        .iter()
+        .filter(|track| track.has_instrument)
+        .filter_map(|track| track.id)
+        .collect();
+    for (track, target) in tracks.iter_mut().zip(midi_targets) {
+        track.midi_target = target;
+        track.routed_to_instrument =
+            target.is_some_and(|target_id| instrument_ids.contains(&target_id));
     }
 
     let bpm = read_tempo(live_set);
@@ -550,40 +566,49 @@ fn build_report(path: &Path, root: &Element, clips: &[RawClip]) -> Result<Templa
             );
         }
         if let Some(track) = tracks.iter().find(|t| t.index == clip.info.track_index) {
-            if !track.has_instrument {
-                warnings.push(format!("目标轨道「{}」未检测到乐器设备。", track.name));
-            } else if !looks_like_grand_piano(&track.name, &track.devices) {
+            if track.has_instrument {
+                if !looks_like_piano(&track.name, &track.devices) {
+                    warnings.push(format!(
+                        "目标轨道「{}」没有检测到钢琴类音色；输出会使用模板里的音色。",
+                        track.name
+                    ));
+                }
+            } else if let Some(target) = track
+                .midi_target
+                .and_then(|id| tracks.iter().find(|target| target.id == Some(id)))
+            {
+                if !looks_like_piano(&target.name, &target.devices) {
+                    warnings.push(format!(
+                        "目标 MIDI 轨「{}」路由到的乐器轨「{}」没有检测到钢琴类音色。",
+                        track.name, target.name
+                    ));
+                }
+            } else {
                 warnings.push(format!(
-                    "目标轨道「{}」没有检测到名为 Grand Piano 的设备；输出会使用模板里的音色。",
+                    "目标轨道「{}」未检测到乐器设备，也没有路由到 Group 内的乐器轨。",
                     track.name
                 ));
             }
         }
-        if let Some(group_id) = clip.info.group_id {
-            let child_count = tracks
-                .iter()
-                .filter(|t| t.kind == TrackKind::Midi && t.group_id == Some(group_id))
-                .count();
-            if child_count != 1 {
-                warnings.push(format!(
-                    "原型 Group 里有 {} 条 MIDI 轨道；转换器需要恰好一条 MIDI 轨道作为子轨原型。",
-                    child_count
-                ));
-            }
+        if let Some(group_id) = clip.info.group_id
+            && !group_children_valid(&tracks, group_id)
+        {
+            warnings.push(
+                "原型 Group 需要 1 条“乐器+Clip”轨，或 1 条乐器轨 + 1 条 MIDI 轨（MIDI To 指向乐器轨）。"
+                    .into(),
+            );
         }
     }
     for track in &tracks {
         if track.kind != TrackKind::Group || !is_channel_group_name(&track.name) {
             continue;
         }
-        let child_count = tracks
-            .iter()
-            .filter(|t| t.kind == TrackKind::Midi && t.group_id == track.id)
-            .count();
-        if child_count != 1 {
+        if let Some(group_id) = track.id
+            && !group_children_valid(&tracks, group_id)
+        {
             warnings.push(format!(
-                "Group「{}」里有 {} 条 MIDI 轨道；作为通道原型时要求恰好一条。",
-                track.name, child_count
+                "Group「{}」需要 1 条“乐器+Clip”轨，或 1 条乐器轨 + 1 条 MIDI 轨（MIDI To 指向乐器轨）。",
+                track.name
             ));
         }
         if !clips
@@ -751,6 +776,134 @@ fn collect_pointee_ids_for_validation(
     Ok(())
 }
 
+enum PrototypeMode {
+    Single { child: Element },
+    Routed { instrument: Element, midi: Element },
+}
+
+fn resolve_prototype(
+    tracks: &Element,
+    prototype: &RawClip,
+) -> Result<(Element, PrototypeMode, Element)> {
+    let group_id = prototype
+        .group_id
+        .context("通道原型 Clip 不在 Group 内；需要把原型 Clip 放进 Group")?;
+    let group_element_index = prototype
+        .group_element_index
+        .context("找不到通道原型 Clip 所在的 Group")?;
+    let group = tracks
+        .children
+        .get(group_element_index)
+        .and_then(XMLNode::as_element)
+        .context("无法定位原型 Group")?;
+    if track_kind(group) != TrackKind::Group {
+        bail!("通道原型 Clip 的 TrackGroupId 指向的不是 GroupTrack");
+    }
+
+    let child_indices: Vec<usize> = tracks
+        .children
+        .iter()
+        .enumerate()
+        .filter(|(_, node)| {
+            node.as_element().is_some_and(|track| {
+                track_kind(track) == TrackKind::Midi && track_group_id(track) == Some(group_id)
+            })
+        })
+        .map(|(index, _)| index)
+        .collect();
+
+    match child_indices.as_slice() {
+        [child_index] => {
+            if *child_index != prototype.track_element_index {
+                bail!("原型 Clip 不在 Group 里的唯一 MIDI 轨上");
+            }
+            let child = tracks
+                .children
+                .get(*child_index)
+                .and_then(XMLNode::as_element)
+                .context("无法定位原型 MIDI 轨道")?;
+            let clip = navigate(child, &prototype.clip_path)
+                .context("无法定位原型 Clip 的 XML")?
+                .clone();
+            Ok((
+                group.clone(),
+                PrototypeMode::Single {
+                    child: child.clone(),
+                },
+                clip,
+            ))
+        }
+        [first, second] => {
+            let mut instrument = None;
+            let mut midi = None;
+            for index in [*first, *second] {
+                let track = tracks
+                    .children
+                    .get(index)
+                    .and_then(XMLNode::as_element)
+                    .context("无法定位原型子轨")?;
+                if track_devices(track).1 {
+                    instrument = Some((index, track));
+                } else {
+                    midi = Some((index, track));
+                }
+            }
+            let (instrument_index, instrument) =
+                instrument.context("路由模式下 Group 里需要一条乐器轨")?;
+            let (midi_index, midi) = midi.context("路由模式下 Group 里需要一条 MIDI 轨")?;
+            if midi_index != prototype.track_element_index {
+                bail!("原型 Clip 应该放在路由模式的 MIDI 轨上，而不是乐器轨上");
+            }
+            let instrument_id = track_id(instrument).context("乐器轨缺少 Id")?;
+            let routed_to = midi_routed_track_id(midi);
+            if routed_to != Some(instrument_id) {
+                bail!(
+                    "路由模式的 MIDI 轨没有路由到 Group 内的乐器轨（当前 MIDI To: {:?}）",
+                    routed_to
+                );
+            }
+            let clip = navigate(midi, &prototype.clip_path)
+                .context("无法定位路由模式 MIDI 轨的 Clip")?
+                .clone();
+            let _ = instrument_index;
+            Ok((
+                group.clone(),
+                PrototypeMode::Routed {
+                    instrument: instrument.clone(),
+                    midi: midi.clone(),
+                },
+                clip,
+            ))
+        }
+        _ => bail!(
+            "通道原型 Group 需要 1 条乐器+Clip 轨，或 1 条乐器轨 + 1 条 MIDI 轨（MIDI To 指向乐器轨）；当前有 {} 条 MIDI 轨。",
+            child_indices.len()
+        ),
+    }
+}
+
+fn midi_routed_track_id(track: &Element) -> Option<u32> {
+    let target = track
+        .get_child("DeviceChain")?
+        .get_child("MidiOutputRouting")?
+        .get_child("Target")
+        .and_then(|node| attr(node, "Value"))?;
+    let rest = target.strip_prefix("MidiOut/Track.")?;
+    rest.split('/').next()?.parse().ok()
+}
+
+fn set_midi_output_to_track(track: &mut Element, instrument_id: u32, instrument_name: &str) {
+    if let Some(routing) = find_descendant_mut(track, "MidiOutputRouting") {
+        set_child_value(
+            routing,
+            "Target",
+            &format!("MidiOut/Track.{instrument_id}/TrackIn"),
+        );
+        set_child_value(routing, "UpperDisplayString", instrument_name);
+        set_child_value(routing, "LowerDisplayString", "Track In");
+    }
+}
+
 pub(crate) fn inject_groups(
     root: &mut Element,
     req: GroupInjectRequest<'_>,
@@ -792,61 +945,36 @@ pub(crate) fn inject_groups(
             continue;
         }
 
-        let prototype = &group.prototype;
-        let group_id = prototype
+        let (prototype_group, mode, clip_template) = {
+            let tracks = live_set
+                .get_child("Tracks")
+                .context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
+            resolve_prototype(tracks, &group.prototype)?
+        };
+        let group_id = group
+            .prototype
             .group_id
-            .context("通道原型 Clip 不在 Group 内；需要把原型 Clip 放进 Group")?;
-        let group_element_index = prototype
+            .context("通道原型 Clip 不在 Group 内")?;
+        let group_element_index = group
+            .prototype
             .group_element_index
             .context("找不到通道原型 Clip 所在的 Group")?;
         insert_at = insert_at.min(group_element_index);
         remove_group_ids.insert(group_id);
 
-        let (prototype_group, prototype_child, clip_template) = {
-            let tracks = live_set
-                .get_child("Tracks")
-                .context("模板里找不到 <LiveSet>/<Tracks> 节点")?;
-            let group_el = tracks
-                .children
-                .get(group_element_index)
-                .and_then(XMLNode::as_element)
-                .context("无法定位原型 Group")?;
-            if track_kind(group_el) != TrackKind::Group {
-                bail!("通道原型 Clip 的 TrackGroupId 指向的不是 GroupTrack");
-            }
-            let child_el = tracks
-                .children
-                .get(prototype.track_element_index)
-                .and_then(XMLNode::as_element)
-                .context("无法定位原型 MIDI 轨道")?;
-            if track_kind(child_el) != TrackKind::Midi {
-                bail!("通道原型 Clip 不在 MIDI 轨道上");
-            }
-            let child_ids: Vec<u32> = tracks
-                .children
-                .iter()
-                .filter_map(XMLNode::as_element)
-                .filter(|track| track_kind(track) == TrackKind::Midi)
-                .filter(|track| track_group_id(track) == Some(group_id))
-                .filter_map(track_id)
-                .collect();
-            if child_ids.len() != 1 {
-                bail!(
-                    "通道原型 Group「{}」里必须恰好有一条 MIDI 轨道，当前有 {} 条。",
-                    group.group_name,
-                    child_ids.len()
-                );
-            }
-            let clip =
-                navigate(child_el, &prototype.clip_path).context("无法定位原型 Clip 的 XML")?;
-            (group_el.clone(), child_el.clone(), clip.clone())
+        let write_note_ids = clip_template
+            .get_child("Notes")
+            .and_then(|notes| notes.get_child("NoteIdGenerator"))
+            .is_some();
+        let instrument_track = match &mode {
+            PrototypeMode::Single { child } => child,
+            PrototypeMode::Routed { instrument, .. } => instrument,
         };
-
-        let (devices, has_instrument) = track_devices(&prototype_child);
-        let prototype_track_name = track_name(&prototype_child);
+        let (devices, has_instrument) = track_devices(instrument_track);
+        let prototype_track_name = track_name(instrument_track);
         if !has_instrument {
             warnings.push(format!(
-                "通道 {} 的原型 MIDI 轨道「{}」没有检测到乐器设备（设备：{}）。",
+                "通道 {} 的原型乐器轨「{}」没有检测到乐器设备（设备：{}）。",
                 group.group_name,
                 prototype_track_name,
                 if devices.is_empty() {
@@ -855,19 +983,23 @@ pub(crate) fn inject_groups(
                     devices.join(", ")
                 }
             ));
-        } else if !looks_like_grand_piano(&prototype_track_name, &devices) {
+        } else if !looks_like_piano(&prototype_track_name, &devices) {
             warnings.push(format!(
-                "通道 {} 的原型 MIDI 轨道「{}」没有检测到 Grand Piano（设备：{}）；输出会使用模板里的音色。",
+                "通道 {} 的原型乐器轨「{}」没有检测到钢琴类音色（设备：{}）；输出会使用模板里的音色。",
                 group.group_name,
                 prototype_track_name,
                 devices.join(", ")
             ));
         }
-
-        let write_note_ids = clip_template
-            .get_child("Notes")
-            .and_then(|notes| notes.get_child("NoteIdGenerator"))
-            .is_some();
+        let effects = track_effect_names(instrument_track);
+        if !effects.is_empty() {
+            warnings.push(format!(
+                "通道 {} 的原型乐器轨「{}」包含 Reverb/Delay（{}）；黑乐谱建议在模板里关掉并移到 Group 或共享 Return。",
+                group.group_name,
+                prototype_track_name,
+                effects.join(", ")
+            ));
+        }
 
         let new_group_id = next_track_id;
         next_track_id += 1;
@@ -880,67 +1012,154 @@ pub(crate) fn inject_groups(
         set_track_unfolded(&mut new_group, true);
         new_tracks.push(XMLNode::Element(new_group));
 
-        for child in &group.children {
-            let new_child_id = next_track_id;
-            next_track_id += 1;
+        match mode {
+            PrototypeMode::Single {
+                child: prototype_child,
+            } => {
+                for child in &group.children {
+                    let new_child_id = next_track_id;
+                    next_track_id += 1;
 
-            let mut new_child = prototype_child.clone();
-            remap_pointee_ids(&mut new_child, &mut pointee_allocator);
-            set_attr(&mut new_child, "Id", &new_child_id.to_string());
-            set_track_name(&mut new_child, &child.track_name);
-            set_track_group_id(&mut new_child, new_group_id as i64);
-            set_linked_track_group_id(&mut new_child, -1);
-            set_track_unfolded(&mut new_child, true);
-            set_group_output(&mut new_child);
-            set_record_arm(&mut new_child, false);
+                    let mut new_child = prototype_child.clone();
+                    remap_pointee_ids(&mut new_child, &mut pointee_allocator);
+                    set_attr(&mut new_child, "Id", &new_child_id.to_string());
+                    set_track_name(&mut new_child, &child.track_name);
+                    set_track_group_id(&mut new_child, new_group_id as i64);
+                    set_linked_track_group_id(&mut new_child, -1);
+                    set_track_unfolded(&mut new_child, true);
+                    set_group_output(&mut new_child);
+                    set_record_arm(&mut new_child, false);
 
-            let targets = controller_targets(&new_child);
-            strip_midi_clips(&mut new_child);
-            let events = ensure_arranger_events(&mut new_child)?;
-            events
-                .children
-                .push(XMLNode::Element(clip_template.clone()));
-            let new_clip = events
-                .children
-                .last_mut()
-                .and_then(XMLNode::as_mut_element)
-                .context("写入 Arrangement Clip 失败")?;
+                    let targets = controller_targets(&new_child);
+                    strip_midi_clips(&mut new_child);
+                    let events = ensure_arranger_events(&mut new_child)?;
+                    events
+                        .children
+                        .push(XMLNode::Element(clip_template.clone()));
+                    let new_clip = events
+                        .children
+                        .last_mut()
+                        .and_then(XMLNode::as_mut_element)
+                        .context("写入 Arrangement Clip 失败")?;
 
-            edit_clip(
-                new_clip,
-                req.clip_start_beats,
-                child.clip_length_beats,
-                &child.clip_name,
-                req.time_signature,
-                &child.notes,
-                write_note_ids,
-            )?;
-            clear_clip_envelopes(new_clip);
-            if req.write_midi_automation {
-                add_midi_automation(
-                    new_clip,
-                    group.channel,
-                    req.controllers,
-                    req.pitch_bends,
-                    &targets,
-                    req.ppq,
-                    child.clip_length_beats,
-                    &mut warnings,
-                )?;
+                    edit_clip(
+                        new_clip,
+                        req.clip_start_beats,
+                        child.clip_length_beats,
+                        &child.clip_name,
+                        req.time_signature,
+                        &child.notes,
+                        write_note_ids,
+                    )?;
+                    clear_clip_envelopes(new_clip);
+                    if req.write_midi_automation {
+                        add_midi_automation(
+                            new_clip,
+                            group.channel,
+                            req.controllers,
+                            req.pitch_bends,
+                            &targets,
+                            req.ppq,
+                            child.clip_length_beats,
+                            &mut warnings,
+                        )?;
+                    }
+
+                    let notes_in_clip = count_descendants(new_clip, "MidiNoteEvent");
+                    if notes_in_clip != child.notes.len() {
+                        bail!(
+                            "内部校验失败：通道 A{:02} 轨道「{}」写入 {} 个音符，但 Clip 中读到 {} 个",
+                            group.channel + 1,
+                            child.track_name,
+                            child.notes.len(),
+                            notes_in_clip
+                        );
+                    }
+
+                    new_tracks.push(XMLNode::Element(new_child));
+                }
             }
+            PrototypeMode::Routed { instrument, midi } => {
+                let instrument_name = format!("{} Inst", group.group_name);
+                let new_instrument_id = next_track_id;
+                next_track_id += 1;
+                let mut new_instrument = instrument;
+                remap_pointee_ids(&mut new_instrument, &mut pointee_allocator);
+                set_attr(&mut new_instrument, "Id", &new_instrument_id.to_string());
+                set_track_name(&mut new_instrument, &instrument_name);
+                set_track_group_id(&mut new_instrument, new_group_id as i64);
+                set_linked_track_group_id(&mut new_instrument, -1);
+                set_track_unfolded(&mut new_instrument, true);
+                set_group_output(&mut new_instrument);
+                set_record_arm(&mut new_instrument, false);
+                strip_midi_clips(&mut new_instrument);
+                new_tracks.push(XMLNode::Element(new_instrument));
 
-            let notes_in_clip = count_descendants(new_clip, "MidiNoteEvent");
-            if notes_in_clip != child.notes.len() {
-                bail!(
-                    "内部校验失败：通道 A{:02} 轨道「{}」写入 {} 个音符，但 Clip 中读到 {} 个",
-                    group.channel + 1,
-                    child.track_name,
-                    child.notes.len(),
-                    notes_in_clip
-                );
+                for (index, child) in group.children.iter().enumerate() {
+                    let new_midi_id = next_track_id;
+                    next_track_id += 1;
+
+                    let mut new_midi = midi.clone();
+                    remap_pointee_ids(&mut new_midi, &mut pointee_allocator);
+                    set_attr(&mut new_midi, "Id", &new_midi_id.to_string());
+                    set_track_name(&mut new_midi, &child.track_name);
+                    set_track_group_id(&mut new_midi, new_group_id as i64);
+                    set_linked_track_group_id(&mut new_midi, -1);
+                    set_track_unfolded(&mut new_midi, true);
+                    set_record_arm(&mut new_midi, false);
+                    set_midi_output_to_track(&mut new_midi, new_instrument_id, &instrument_name);
+
+                    let targets = controller_targets(&new_midi);
+                    strip_midi_clips(&mut new_midi);
+                    let events = ensure_arranger_events(&mut new_midi)?;
+                    events
+                        .children
+                        .push(XMLNode::Element(clip_template.clone()));
+                    let new_clip = events
+                        .children
+                        .last_mut()
+                        .and_then(XMLNode::as_mut_element)
+                        .context("写入 Arrangement Clip 失败")?;
+
+                    edit_clip(
+                        new_clip,
+                        req.clip_start_beats,
+                        child.clip_length_beats,
+                        &child.clip_name,
+                        req.time_signature,
+                        &child.notes,
+                        write_note_ids,
+                    )?;
+                    clear_clip_envelopes(new_clip);
+                    // All MIDI tracks feed the same instrument. Put channel-wide
+                    // CC/Pitch Bend automation on the first MIDI track only.
+                    if req.write_midi_automation && index == 0 {
+                        add_midi_automation(
+                            new_clip,
+                            group.channel,
+                            req.controllers,
+                            req.pitch_bends,
+                            &targets,
+                            req.ppq,
+                            child.clip_length_beats,
+                            &mut warnings,
+                        )?;
+                    }
+
+                    let notes_in_clip = count_descendants(new_clip, "MidiNoteEvent");
+                    if notes_in_clip != child.notes.len() {
+                        bail!(
+                            "内部校验失败：通道 A{:02} 轨道「{}」写入 {} 个音符，但 Clip 中读到 {} 个",
+                            group.channel + 1,
+                            child.track_name,
+                            child.notes.len(),
+                            notes_in_clip
+                        );
+                    }
+
+                    new_tracks.push(XMLNode::Element(new_midi));
+                }
             }
-
-            new_tracks.push(XMLNode::Element(new_child));
         }
     }
 
@@ -1787,6 +2006,28 @@ fn ensure_arranger_events(track: &mut Element) -> Result<&mut Element> {
     child_mut(arranger, "Events").context("ArrangerAutomation 缺少 Events 节点")
 }
 
+fn track_effect_names(track: &Element) -> Vec<String> {
+    const EFFECT_TAGS: &[&str] = &[
+        "Reverb",
+        "HybridReverb",
+        "Delay",
+        "FilterDelay",
+        "Echo",
+        "Chorus2",
+    ];
+    fn walk(element: &Element, names: &mut Vec<String>) {
+        if EFFECT_TAGS.contains(&element.name.as_str()) && !names.contains(&element.name) {
+            names.push(element.name.clone());
+        }
+        for child in element.children.iter().filter_map(XMLNode::as_element) {
+            walk(child, names);
+        }
+    }
+    let mut names = Vec::new();
+    walk(track, &mut names);
+    names
+}
+
 fn track_devices(track: &Element) -> (Vec<String>, bool) {
     let Some(outer) = track.get_child("DeviceChain") else {
         return (Vec::new(), false);
@@ -1814,15 +2055,41 @@ fn track_devices(track: &Element) -> (Vec<String>, bool) {
     (names, has_instrument)
 }
 
-fn looks_like_grand_piano(track_name: &str, devices: &[String]) -> bool {
-    let track = track_name.to_lowercase();
-    if track.contains("grand piano") || track.contains("grandpiano") {
+fn looks_like_piano(track_name: &str, devices: &[String]) -> bool {
+    if track_name.to_lowercase().contains("piano") {
         return true;
     }
-    devices.iter().any(|device| {
-        let device = device.to_lowercase();
-        device.contains("grand piano") || device.contains("grandpiano")
-    })
+    devices
+        .iter()
+        .any(|device| device.to_lowercase().contains("piano"))
+}
+
+fn group_children_valid(tracks: &[TrackInfo], group_id: u32) -> bool {
+    let children: Vec<&TrackInfo> = tracks
+        .iter()
+        .filter(|track| track.kind == TrackKind::Midi && track.group_id == Some(group_id))
+        .collect();
+    if children.len() == 1 {
+        return true;
+    }
+    if children.len() != 2 {
+        return false;
+    }
+    let instruments: Vec<&TrackInfo> = children
+        .iter()
+        .copied()
+        .filter(|track| track.has_instrument)
+        .collect();
+    let midis: Vec<&TrackInfo> = children
+        .iter()
+        .copied()
+        .filter(|track| !track.has_instrument)
+        .collect();
+    instruments.len() == 1
+        && midis.len() == 1
+        && midis[0]
+            .midi_target
+            .is_some_and(|target| target == instruments[0].id.unwrap_or(u32::MAX))
 }
 
 fn is_channel_group_name(name: &str) -> bool {

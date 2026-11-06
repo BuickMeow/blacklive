@@ -262,7 +262,7 @@ impl App {
         match convert_midi_to_als(&midi, &template, &output, &options) {
             Ok(result) => {
                 self.log(format!(
-                    "✓ 输出 {}，写入 {} 音符，{} 组 / {} 轨，BPM {}，Clip {:.2} beats",
+                    "✓ 输出 {}，写入 {} 音符，{} 组 / {} MIDI 轨，BPM {}，Clip {:.2} beats",
                     result.output_path.display(),
                     result.used_note_count,
                     result.groups.len(),
@@ -409,12 +409,16 @@ impl App {
                         .as_ref()
                         .map(|name| format!("  @ {name}"))
                         .unwrap_or_default();
-                    let warning =
-                        if track.kind == blacklive::als::TrackKind::Midi && !track.has_instrument {
-                            "  [!] 无乐器"
-                        } else {
-                            ""
-                        };
+                    let warning = if track.kind == blacklive::als::TrackKind::Midi
+                        && !track.has_instrument
+                        && !track.routed_to_instrument
+                    {
+                        "  [!] 无乐器"
+                    } else if track.routed_to_instrument {
+                        "  → 乐器轨"
+                    } else {
+                        ""
+                    };
                     ui.label(format!(
                         "#{} [{}] {}{}{}",
                         track.index, track.kind, track.name, group, warning
@@ -566,7 +570,7 @@ impl App {
         if let Some(result) = &self.last_result {
             ui.horizontal_wrapped(|ui| {
                 ui.label(format!(
-                    "写入 {} / 源 {} 音符   {} 组 / {} 轨   BPM {}   长度 {} beats",
+                    "写入 {} / 源 {} 音符   {} 组 / {} MIDI 轨   BPM {}   长度 {} beats",
                     result.used_note_count,
                     result.source_note_count,
                     result.groups.len(),
@@ -587,7 +591,7 @@ impl App {
             });
             ui.horizontal_wrapped(|ui| {
                 for group in &result.groups {
-                    ui.label(format!("{} · {} 轨", group.name, group.tracks.len()));
+                    ui.label(format!("{} · {} MIDI 轨", group.name, group.tracks.len()));
                 }
             });
         }

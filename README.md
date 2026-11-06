@@ -14,26 +14,30 @@
 
 ## 1. 结构
 
-转换结果按 MIDI 通道分组：
+转换结果按 MIDI 通道分组。推荐的路由模式：
 
 ```text
 A01 (Group)
-├── 源 MIDI 轨道 1 (MIDI Track，Grand Piano)
-└── 源 MIDI 轨道 2 (MIDI Track，Grand Piano)
+├── A01 Inst   (MIDI Track，Ac Piano Upright，无 Clip)
+├── A01-01     (MIDI Track，无乐器，Arrangement Clip，MIDI To = A01 Inst)
+└── A01-02     (MIDI Track，无乐器，Arrangement Clip，MIDI To = A01 Inst)
 
 A02 (Group)
-└── 源 MIDI 轨道 1 (MIDI Track，Grand Piano)
+├── A02 Inst
+└── A02-01 ...
 ```
 
 - 每个 MIDI 通道生成一个 **GroupTrack**，命名 `A01`、`A02`……
-- 同一通道内，每个源 MIDI 轨道生成一条子 MIDI 轨道；该通道所有子轨都在同一个 Group 里。
-- 所有子轨都从模板里的原型 MIDI 轨克隆，因此使用同一个乐器/设备链。
+- 同一通道内，每个源 MIDI 轨道生成一条**纯 MIDI 子轨**；该通道所有子轨都在同一个 Group 里。
+- 每个 Group 只有一个钢琴实例 `A01 Inst`，所有 MIDI 子轨都路由到它。
 - Group 从模板里的原型 Group 克隆，Group 的自动化、效果器、Mixer 设置都会保留。
 - 如果模板里已经有名为 `A01`、`A02`… 的 Group，会优先用对应 Group 作为该通道的原型；没有则使用界面里选中的默认原型。这样可以给不同通道不同乐器/效果。
-- 子轨的音频输出指向所属 Group。
-- 每个子轨生成一个 Arrangement Clip。
-- MIDI CC（包括 CC64 踏板）和 Pitch Bend 写成 Clip Envelope 自动化。
+- MIDI 子轨的音频输出不重要（它们没有乐器）；`A01 Inst` 的音频输出指向 Group。
+- 每个 MIDI 子轨生成一个 Arrangement Clip。
+- MIDI CC（包括 CC64 踏板）和 Pitch Bend 写在第一条 MIDI 子轨的 Clip Envelope 里，对整个通道共用一台钢琴生效，避免重复自动化。
 - MIDI Tempo Map 写成 Master Tempo 自动化。
+
+也兼容旧式单轨模式：Group 里只有一条“乐器 + Clip”轨道时，转换器会按源轨道克隆这条轨（每子轨一个乐器）。
 
 默认 `按源轨道拆分` 开启。如果你想把同一通道的所有源轨道合并成一条子轨，可以在界面关闭它。
 
@@ -41,20 +45,24 @@ A02 (Group)
 
 ## 2. 模板要求
 
-模板是整个方案的关键。模板里的 Live 版本、Grand Piano 设备、Group 效果器、自动化、Mixer 设置都会被保留。
+模板是整个方案的关键。模板里的 Live 版本、钢琴设备、Group 效果器、自动化、Mixer 设置都会被保留。
+
+推荐使用**路由模板**：
 
 1. 用**目标 Ableton Live 版本**新建一个空工程。
-2. 删除不需要的轨道和效果器，只保留 Master / Return 和下面这个原型 Group。
-3. 创建一个 **Group**，命名为 `A01`。
-4. 在 Group 里放**一条 MIDI 轨道**，加载 Live 自带的 **Grand Piano**。
-5. 在这条 MIDI 轨道上放一个短占位 Clip（Session 或 Arrangement 都可以，长度 1 小节即可）。
-6. 如果希望每个通道使用 Group 效果器/自动化，把效果器和自动化挂在**原型 Group** 上。
+2. 删除不需要的轨道和效果器，只保留 Master / Return。
+3. 创建一条乐器轨 `A01 Inst`，加载 `Ac Piano Upright`（或你微调后的钢琴），不要放 Clip。
+4. 创建一条纯 MIDI 轨 `A01-01`，不要加载乐器，放一个短占位 Clip（Session 或 Arrangement 都可以），并把它的 `MIDI To` 指向 `A01 Inst`。
+5. 选中这两条轨道，`Cmd+G` 创建 Group，命名为 `A01`。
+6. 把该通道需要的效果器/自动化挂在 **Group A01** 上；Reverb 建议放在 Group 或共享 Return，不要留在每条子轨。
 7. 保存为 `template.als`，关闭 Live。
-8. 如果希望每个通道使用不同乐器/Group 效果，可以在模板里再放 `A02`、`A03`… 各一个 Group（每个 Group 下仍然恰好一条 MIDI 轨 + 占位 Clip）。转换器会优先使用同名 Group 作为该通道原型。
-9. 如果模板里有其他 Group/MIDI 轨道，转换器会保留它们；建议模板只保留需要的原型 Group 以得到干净输出。
+8. 如果希望每个通道使用不同钢琴/Group 效果，再做 `A02`、`A03`… 各自一个路由 Group。
+9. 如果模板里有其他 Group/MIDI 轨道，转换器会保留它们；建议模板只保留需要的原型 Group。
 
-> 原型 Group 下必须**恰好有一条 MIDI 轨道**作为子轨原型。转换器会按通道和源轨道克隆这条子轨。
+> 路由 Group 需要 **1 条乐器轨（无 Clip） + 1 条 MIDI 轨（有占位 Clip，MIDI To 指向乐器轨）**。
+> 旧式模板也可以：Group 里只有 1 条“乐器 + Clip”轨；转换器会退化为每子轨一个乐器。
 > 可选：`A01`、`A02`… 每个通道一个原型 Group；未提供对应名称时使用默认原型。
+> `luyou.als` 已经包含 `Ac Piano Upright` + 一条 MIDI 轨路由；把这两条轨 `Cmd+G` 成 `A01` 并保存即可作为路由模板。
 
 采样率是 Live 的全局 Preferences，不保存在 `.als` 里。请先在 Live 的 Audio 设置里设好。
 
@@ -224,15 +232,16 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 - `6-E-Piano Basic`、`12-E-Piano Old School` 属于中等；多链/效果会叠加。
 - `2-E-Piano Dreamy`（Collision）、`5-Analog Piano`（Drift）、`8-Cracked Piano`（Meld）是物理建模/合成器，单 voice 成本更高。
 - `10-Childhood Home Piano`（3 个 MultiSampler、92 个 SampleRef、踏板/按键噪声、混响）、`7-Abyss Keys`（双层 Wavetable + 效果）、`13-Exo Keys`（双层 Wavetable + Delay/Reverb）在 1 万音符以上会明显更吃 CPU。
-- 每个 Group 包含该通道的所有源 MIDI 子轨；但**每条子轨都克隆一套乐器**会让 CPU 随子轨数线性增长。更省 CPU 的做法是每个 Group 只保留一个乐器实例，其余 MIDI 轨通过 MIDI 路由到它（尚未实现），或者把同通道源轨合并成一条子轨。
+- 每个 Group 包含该通道的所有源 MIDI 子轨，但只保留一个钢琴实例 `A01 Inst`；所有 MIDI 子轨通过 `MIDI To` 路由到它。这样 CPU 不随子轨数增长。
+- 旧式模板（每条子轨一个乐器）仍兼容，但不推荐高密度黑乐谱使用。
 - 黑乐谱优先把 Reverb/Delay 放到 Group 或共享 Return，不要在每条子轨里各克隆一个。
 - 建议给钢琴设置合适的复音上限/voice stealing，并考虑在最终播放时 freeze/flatten。
 - 如果所有通道都是 program 0，用一个默认钢琴原型就够；需要每通道不同音色时再做 A01/A02 原型。
 
 ## 8. 当前限制
 
-- 原型 Group 下必须恰好一条 MIDI 轨道。
-- 可以按 `A01`、`A02`… 提供不同原型 Group；未提供的通道使用默认原型。原型组里的子轨数量和乐器由模板决定。
+- 路由 Group 需要 1 条乐器轨 + 1 条 MIDI 轨；旧式单轨 Group 仍兼容。
+- 可以按 `A01`、`A02`… 提供不同原型 Group；未提供的通道使用默认原型。
 - 写 MIDI CC 和 Pitch Bend 自动化；Channel Pressure / Poly Pressure 未写入。
 - Pitch Bend 的 14-bit 编码按通用 MIDI 处理；需要你在 Live 里验证一次中心值和上下限。
 - Program Change 被忽略；不会按音色切换分轨。
@@ -245,9 +254,9 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 
 ## 9. 已验证
 
-- 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、ID 重映射、Arrangement Clip 注入、CC64 Clip 自动化、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
+- 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、全局 ID 重映射、Arrangement Clip 注入、MIDI 路由、CC64 Clip 自动化、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
 - 单通道 1,228 音符、含 CC64 自动化：输出约 184 KB `.als`。
-- 5.4 万音符黑乐谱、15 个通道组：输出约 5.0 MB `.als`（57.8 MB XML），最大复音 89，3 个 Tempo 自动化点。
+- 5.4 万音符黑乐谱、15 个通道组：路由模式下输出约 1.1 MB `.als`；A01 为 1 个钢琴实例 + 29 条 MIDI 子轨，所有 MIDI 子轨都路由到 `A01 Inst`。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
 - A01/A02 不同原型测试：A01 使用 Operator 链，A02 使用 Drift 链；输出正确按通道选择不同原型，ID 校验通过。
 - `cargo test`：7 个单元测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
