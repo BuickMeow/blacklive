@@ -1,0 +1,507 @@
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result, bail};
+
+use crate::als::{self, InjectRequest, TemplateReport};
+use crate::midi::{MidiStats, Note, ParsedMidi, parse_midi_file};
+
+#[derive(Clone, Debug)]
+pub struct ConvertOptions {
+    /// Select a template clip by its index in `TemplateReport::clips`.
+    /// Takes precedence over `template_clip_name`.
+    pub template_clip_index: Option<usize>,
+    /// Select a template clip by its name (case-insensitive exact, then substring).
+    pub template_clip_name: Option<String>,
+    /// `None` means all channels. The GM drum channel (0-based index 9, often
+    /// called channel 10 in DAWs) is excluded unless `include_drum_channel`.
+    pub channels: Option<BTreeSet<u8>>,
+    pub include_drum_channel: bool,
+    pub transpose: i32,
+    /// `None` uses the MIDI's initial tempo, then the template tempo.
+    pub bpm_override: Option<f64>,
+    /// Clamp every note to at least this many beats. 0 preserves the MIDI duration.
+    pub min_note_beats: f64,
+    /// Extra silence appended to the last note, in beats.
+    pub tail_beats: f64,
+    /// Arrangement start position, in beats (0 = bar 1).
+    pub start_beats: f64,
+    /// Defaults to the MIDI file stem.
+    pub clip_name: Option<String>,
+    /// Defaults to the clip name.
+    pub track_name: Option<String>,
+    /// Cut a note short when the next note of the same pitch starts before it ends.
+    pub trim_same_pitch: bool,
+}
+
+impl Default for ConvertOptions {
+    fn default() -> Self {
+        Self {
+            template_clip_index: None,
+            template_clip_name: None,
+            channels: None,
+            include_drum_channel: false,
+            transpose: 0,
+            bpm_override: None,
+            min_note_beats: 0.0,
+            tail_beats: 0.0,
+            start_beats: 0.0,
+            clip_name: None,
+            track_name: None,
+            trim_same_pitch: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ConversionResult {
+    pub output_path: PathBuf,
+    pub template_path: PathBuf,
+    pub midi_path: PathBuf,
+    pub template_clip: String,
+    pub arrangement_created: bool,
+    pub bpm: f64,
+    pub tempo_automation: bool,
+    pub clip_start_beats: f64,
+    pub clip_length_beats: f64,
+    pub source_note_count: usize,
+    pub used_note_count: usize,
+    pub dropped_by_channel: usize,
+    pub dropped_by_transpose: usize,
+    pub clamped_short_notes: usize,
+    pub trimmed_overlaps: usize,
+    pub clip_name: String,
+    pub track_name: String,
+    pub midi_stats: MidiStats,
+    pub warnings: Vec<String>,
+}
+
+/// Run the complete MIDI -> template injection -> `.als` pipeline.
+pub fn convert_midi_to_als(
+    midi_path: &Path,
+    template_path: &Path,
+    output_path: &Path,
+    opts: &ConvertOptions,
+) -> Result<ConversionResult> {
+    ensure_distinct_paths(midi_path, template_path, output_path)?;
+
+    let parsed = parse_midi_file(midi_path)?;
+    let template_xml = als::read_als_xml(template_path)?;
+    let mut root = als::parse_xml(&template_xml)?;
+    let clips = als::enumerate_clips(&root)?;
+    let selected = als::select_clip(
+        &clips,
+        opts.template_clip_index,
+        opts.template_clip_name.as_deref(),
+    )?;
+
+    let clip_name = opts
+        .clip_name
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .or_else(|| {
+            midi_path
+                .file_stem()
+                .map(|s| s.to_string_lossy().trim().to_string())
+                .filter(|s| !s.is_empty())
+        })
+        .unwrap_or_else(|| "MIDI".to_string());
+    let requested_track_name = opts.track_name.clone().filter(|s| !s.trim().is_empty());
+    let display_track_name = requested_track_name
+        .clone()
+        .unwrap_or_else(|| selected.info.track_name.clone());
+
+    let mut warnings = parsed.stats.warnings.clone();
+    if let Some(bpm) = opts.bpm_override {
+        warnings.retain(|warning| !warning.contains("有效变速点"));
+        if parsed.stats.tempo_map.len() > 1 {
+            warnings.push(format!(
+                "使用固定 BPM {} 覆盖；MIDI 的 {} 个变速点不会写入 Tempo 自动化。",
+                crate::format_num(bpm),
+                parsed.stats.tempo_map.len()
+            ));
+        }
+    }
+    let filtered = filter_notes(&parsed, opts, &mut warnings)?;
+
+    let template_bpm = als::template_bpm(&root);
+    let bpm = opts
+        .bpm_override
+        .or(parsed.stats.initial_bpm)
+        .or(template_bpm)
+        .unwrap_or(120.0);
+    if !bpm.is_finite() || bpm <= 0.0 {
+        bail!("BPM 必须是正数");
+    }
+    let clamped_bpm = bpm.clamp(20.0, 999.0);
+    if (clamped_bpm - bpm).abs() > 1e-9 {
+        warnings.push(format!(
+            "BPM {} 超出 Ableton 的 20–999 范围，已夹紧为 {}。",
+            crate::format_num(bpm),
+            crate::format_num(clamped_bpm)
+        ));
+    }
+    if opts.bpm_override.is_none() && parsed.stats.initial_bpm.is_none() {
+        warnings.push(format!(
+            "MIDI 没有 Tempo 事件，使用模板 BPM {}。",
+            crate::format_num(template_bpm.unwrap_or(120.0))
+        ));
+    }
+
+    let start_beats = opts.start_beats.max(0.0);
+    if !start_beats.is_finite() {
+        bail!("Arrangement 起点必须是有限数");
+    }
+    if (start_beats - opts.start_beats).abs() > 1e-9 {
+        warnings.push("Arrangement 起点不能为负数，已改为 0。".into());
+    }
+    let raw_end = filtered
+        .notes
+        .iter()
+        .map(|n| n.start + n.duration)
+        .fold(0.0, f64::max);
+    let clip_length_beats = (((raw_end + opts.tail_beats.max(0.0)) * 4.0).ceil() / 4.0).max(0.25);
+
+    let time_signature = parsed
+        .stats
+        .time_signatures
+        .first()
+        .map(|ts| (ts.numerator, ts.denominator));
+
+    let tempo_map_beats: Vec<(f64, f64)> = if opts.bpm_override.is_none() {
+        let mut points = Vec::with_capacity(parsed.stats.tempo_map.len());
+        for event in &parsed.stats.tempo_map {
+            let beat = event.tick as f64 / parsed.stats.ppq as f64;
+            if points
+                .last()
+                .is_some_and(|(_, previous): &(f64, f64)| (previous - event.bpm).abs() < 1e-9)
+            {
+                continue;
+            }
+            points.push((beat, event.bpm));
+        }
+        points
+    } else {
+        Vec::new()
+    };
+    let tempo_map = if tempo_map_beats.len() > 1 {
+        Some(tempo_map_beats.as_slice())
+    } else {
+        None
+    };
+
+    let injection = als::inject_notes(
+        &mut root,
+        selected,
+        InjectRequest {
+            notes: &filtered.notes,
+            clip_length_beats,
+            clip_start_beats: start_beats,
+            bpm: clamped_bpm,
+            clip_name: &clip_name,
+            track_name: requested_track_name.as_deref(),
+            time_signature,
+            tempo_map,
+        },
+    )?;
+    warnings.extend(injection.warnings);
+    let tempo_automation = injection.tempo_automation_written;
+
+    let output_xml = als::serialize_xml(&root)?;
+    // Re-parse before writing, so an XML serialization bug can never produce a
+    // broken .als silently.
+    als::parse_xml(&output_xml).context("输出 XML 自检失败")?;
+    als::write_als_atomic(output_path, &output_xml)?;
+
+    Ok(ConversionResult {
+        output_path: output_path.to_path_buf(),
+        template_path: template_path.to_path_buf(),
+        midi_path: midi_path.to_path_buf(),
+        template_clip: injection.template_label,
+        arrangement_created: injection.arrangement_created,
+        bpm: clamped_bpm,
+        tempo_automation,
+        clip_start_beats: start_beats,
+        clip_length_beats,
+        source_note_count: parsed.stats.note_count,
+        used_note_count: filtered.notes.len(),
+        dropped_by_channel: filtered.dropped_by_channel,
+        dropped_by_transpose: filtered.dropped_by_transpose,
+        clamped_short_notes: filtered.clamped_short_notes,
+        trimmed_overlaps: filtered.trimmed_overlaps,
+        clip_name,
+        track_name: display_track_name,
+        midi_stats: parsed.stats,
+        warnings,
+    })
+}
+
+struct FilteredNotes {
+    notes: Vec<Note>,
+    dropped_by_channel: usize,
+    dropped_by_transpose: usize,
+    clamped_short_notes: usize,
+    trimmed_overlaps: usize,
+}
+
+fn filter_notes(
+    parsed: &ParsedMidi,
+    opts: &ConvertOptions,
+    warnings: &mut Vec<String>,
+) -> Result<FilteredNotes> {
+    if !opts.min_note_beats.is_finite() || opts.min_note_beats < 0.0 {
+        bail!("最小音符时值必须是非负的有限数");
+    }
+    if !opts.tail_beats.is_finite() || opts.tail_beats < 0.0 {
+        bail!("尾部留白必须是非负的有限数");
+    }
+
+    let mut notes = Vec::with_capacity(parsed.notes.len());
+    let mut dropped_by_channel = 0usize;
+    let mut dropped_drum_notes = 0usize;
+    let mut clamped_short_notes = 0usize;
+
+    for note in &parsed.notes {
+        let keep = match &opts.channels {
+            Some(channels) => channels.contains(&note.channel),
+            None => !(note.channel == 9 && !opts.include_drum_channel),
+        };
+        if !keep {
+            dropped_by_channel += 1;
+            if note.channel == 9 && opts.channels.is_none() && !opts.include_drum_channel {
+                dropped_drum_notes += 1;
+            }
+            continue;
+        }
+
+        let key = note.key as i32 + opts.transpose;
+        if !(0..=127).contains(&key) {
+            continue;
+        }
+
+        let mut out = note.clone();
+        out.key = key as u8;
+        out.duration = out.duration.max(1e-6);
+        if opts.min_note_beats > 0.0 && out.duration < opts.min_note_beats {
+            out.duration = opts.min_note_beats;
+            clamped_short_notes += 1;
+        }
+        notes.push(out);
+    }
+
+    let dropped_by_transpose = parsed
+        .notes
+        .len()
+        .saturating_sub(notes.len())
+        .saturating_sub(dropped_by_channel);
+
+    if dropped_drum_notes > 0 {
+        warnings.push(format!(
+            "默认排除了 GM 鼓通道（0-based index 9）的 {dropped_drum_notes} 个音符。若模板是鼓组，请勾选「包含鼓通道」。"
+        ));
+    }
+    if opts.channels.is_some() && dropped_by_channel > 0 {
+        warnings.push(format!(
+            "通道过滤排除了 {dropped_by_channel} 个音符，保留 {} 个。",
+            notes.len()
+        ));
+    }
+    if dropped_by_transpose > 0 {
+        warnings.push(format!(
+            "移调 {:+} 后半音后有 {dropped_by_transpose} 个音符超出 MIDI 0–127，已丢弃。",
+            opts.transpose
+        ));
+    }
+    if opts.min_note_beats > 0.0 {
+        warnings.push(format!(
+            "最小音符时值设为 {} beats；短于该值的音符已被拉长。",
+            crate::format_num(opts.min_note_beats)
+        ));
+    }
+
+    let trimmed_overlaps = if opts.trim_same_pitch {
+        let count = trim_same_pitch_overlaps(&mut notes);
+        if count > 0 {
+            warnings.push(format!(
+                "同音高重叠：截短了 {count} 个前音，避免同 key 叠音。"
+            ));
+        }
+        count
+    } else {
+        0
+    };
+
+    if notes.is_empty() {
+        let channels = parsed
+            .stats
+            .notes_per_channel
+            .keys()
+            .map(u8::to_string)
+            .collect::<Vec<_>>()
+            .join(", ");
+        bail!(
+            "过滤后没有音符可写入。原始 MIDI 通道：{}；请检查通道过滤/移调设置。",
+            if channels.is_empty() {
+                "无".to_string()
+            } else {
+                channels
+            }
+        );
+    }
+
+    notes.sort_by(|a, b| {
+        a.start
+            .total_cmp(&b.start)
+            .then_with(|| a.key.cmp(&b.key))
+            .then_with(|| b.duration.total_cmp(&a.duration))
+            .then_with(|| b.velocity.total_cmp(&a.velocity))
+    });
+
+    Ok(FilteredNotes {
+        notes,
+        dropped_by_channel,
+        dropped_by_transpose,
+        clamped_short_notes,
+        trimmed_overlaps,
+    })
+}
+
+fn trim_same_pitch_overlaps(notes: &mut [Note]) -> usize {
+    notes.sort_by(|a, b| {
+        a.key
+            .cmp(&b.key)
+            .then_with(|| a.start.total_cmp(&b.start))
+            .then_with(|| b.duration.total_cmp(&a.duration))
+    });
+
+    let mut trimmed = 0usize;
+    let mut group_start = 0usize;
+    while group_start < notes.len() {
+        let key = notes[group_start].key;
+        let mut group_end = group_start + 1;
+        while group_end < notes.len() && notes[group_end].key == key {
+            group_end += 1;
+        }
+
+        for i in group_start..group_end.saturating_sub(1) {
+            let next_start = notes[i + 1].start;
+            let start = notes[i].start;
+            if next_start > start && start + notes[i].duration > next_start {
+                notes[i].duration = next_start - start;
+                trimmed += 1;
+            }
+        }
+        group_start = group_end;
+    }
+    trimmed
+}
+
+/// Parse "0,1,2", "0-3", or "" / "all" into a channel set.
+pub fn parse_channel_filter(input: &str) -> Result<Option<BTreeSet<u8>>> {
+    let input = input.trim();
+    if input.is_empty() || input.eq_ignore_ascii_case("all") {
+        return Ok(None);
+    }
+
+    let mut channels = BTreeSet::new();
+    for part in input.split([',', '，']) {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        if let Some((a, b)) = part.split_once('-') {
+            let a = parse_channel(a)?;
+            let b = parse_channel(b)?;
+            if a > b {
+                bail!("通道范围 {a}-{b} 顺序反了");
+            }
+            for ch in a..=b {
+                channels.insert(ch);
+            }
+        } else {
+            channels.insert(parse_channel(part)?);
+        }
+    }
+    if channels.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(channels))
+    }
+}
+
+fn parse_channel(s: &str) -> Result<u8> {
+    let ch: u8 = s
+        .trim()
+        .parse()
+        .with_context(|| format!("无效的 MIDI 通道「{s}」"))?;
+    if ch > 15 {
+        bail!("MIDI 通道必须在 0–15 之间，收到 {ch}");
+    }
+    Ok(ch)
+}
+
+fn ensure_distinct_paths(midi: &Path, template: &Path, output: &Path) -> Result<()> {
+    if output == template {
+        bail!("输出文件不能覆盖模板 .als");
+    }
+    if output == midi {
+        bail!("输出文件不能覆盖输入 MIDI");
+    }
+    if let (Ok(a), Ok(b)) = (
+        std::fs::canonicalize(output),
+        std::fs::canonicalize(template),
+    ) && a == b
+    {
+        bail!("输出文件不能覆盖模板 .als");
+    }
+    if let (Ok(a), Ok(b)) = (std::fs::canonicalize(output), std::fs::canonicalize(midi))
+        && a == b
+    {
+        bail!("输出文件不能覆盖输入 MIDI");
+    }
+    Ok(())
+}
+
+/// Convenience for the GUI: inspect a template and return both the report and
+/// the raw candidate count. Errors are already in user-facing Chinese.
+pub fn inspect_template(path: &Path) -> Result<TemplateReport> {
+    als::inspect_template(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn channel_filter_accepts_ranges() {
+        let parsed = parse_channel_filter("0,2-4, 7").unwrap().unwrap();
+        assert_eq!(parsed, BTreeSet::from([0, 2, 3, 4, 7]));
+        assert!(parse_channel_filter("").unwrap().is_none());
+        assert!(parse_channel_filter("all").unwrap().is_none());
+        assert!(parse_channel_filter("16").is_err());
+    }
+
+    #[test]
+    fn trim_overlaps_shortens_previous_note() {
+        let mut notes = vec![
+            Note {
+                key: 60,
+                start: 0.0,
+                duration: 2.0,
+                velocity: 100.0,
+                off_velocity: 64.0,
+                channel: 0,
+            },
+            Note {
+                key: 60,
+                start: 1.0,
+                duration: 1.0,
+                velocity: 90.0,
+                off_velocity: 64.0,
+                channel: 0,
+            },
+        ];
+        assert_eq!(trim_same_pitch_overlaps(&mut notes), 1);
+        assert!((notes[0].duration - 1.0).abs() < 1e-9);
+    }
+}

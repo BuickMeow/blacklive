@@ -1,0 +1,29 @@
+[package]
+name = "blacklive"
+version = "0.1.0"
+edition = "2024"
+description = "Convert MIDI files into Ableton Live .als projects by injecting notes into a template"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+eframe = "0.37"
+egui = "0.37"
+flate2 = "1"
+midly = "0.5"
+rfd = "0.17"
+thiserror = "2"
+xmltree = { version = "0.12", features = ["attribute-order"] }
+
+[[bin]]
+name = "blacklive"
+path = "src/bin/blacklive-gui.rs"
+
+[[bin]]
+name = "blacklive-cli"
+path = "src/bin/blacklive-cli.rs"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
