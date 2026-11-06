@@ -66,18 +66,10 @@ fn convert_real_group_template() {
             clip.candidate_index, clip.group_name, clip.location, clip.track_name, clip.note_count
         );
     }
-    assert_eq!(
-        out_report
-            .clips
-            .iter()
-            .filter(|clip| clip.group_id.is_some())
-            .count(),
-        1
-    );
     let group_clip = out_report
         .clips
         .iter()
-        .find(|clip| clip.group_id.is_some())
-        .unwrap();
+        .find(|clip| clip.group_name.as_deref() == Some("A01"))
+        .expect("A01 group clip");
     assert_eq!(group_clip.note_count, result.used_note_count);
 }

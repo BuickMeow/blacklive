@@ -292,6 +292,8 @@ pub fn convert_midi_to_als(
     warnings.extend(injection.warnings);
     let tempo_automation = injection.tempo_automation_written;
 
+    als::validate_live_set(&root)?;
+
     let output_xml = als::serialize_xml(&root)?;
     // Re-parse before writing, so an XML serialization bug can never produce a
     // broken .als silently.

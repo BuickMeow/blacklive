@@ -666,6 +666,62 @@ fn clip_name_list(clips: &[RawClip]) -> String {
         .join(", ")
 }
 
+pub(crate) fn validate_live_set(root: &Element) -> Result<()> {
+    validate_sibling_ids(root)?;
+
+    let mut seen = HashSet::new();
+    let mut max_pointee = 0u64;
+    collect_pointee_ids_for_validation(root, &mut seen, &mut max_pointee)?;
+
+    if let Some(next) = live_set(root)
+        .and_then(|live_set| live_set.get_child("NextPointeeId"))
+        .and_then(|node| attr(node, "Value"))
+        .and_then(|value| value.parse::<u64>().ok())
+        && max_pointee >= next
+    {
+        bail!(
+            "Pointee ID 越界：最大 ID {} 不小于 NextPointeeId {}",
+            max_pointee,
+            next
+        );
+    }
+    Ok(())
+}
+
+fn validate_sibling_ids(element: &Element) -> Result<()> {
+    let mut seen = HashSet::new();
+    for child in element.children.iter().filter_map(XMLNode::as_element) {
+        if let Some(id) = attr(child, "Id").and_then(|value| value.parse::<u64>().ok())
+            && !seen.insert(id)
+        {
+            bail!("同一父节点下出现重复 Id：<{} Id=\"{}\">", child.name, id);
+        }
+    }
+    for child in element.children.iter().filter_map(XMLNode::as_element) {
+        validate_sibling_ids(child)?;
+    }
+    Ok(())
+}
+
+fn collect_pointee_ids_for_validation(
+    element: &Element,
+    seen: &mut HashSet<u64>,
+    max: &mut u64,
+) -> Result<()> {
+    if is_pointee_holder(element)
+        && let Some(id) = attr(element, "Id").and_then(|value| value.parse::<u64>().ok())
+    {
+        if !seen.insert(id) {
+            bail!("全局 Pointee/AutomationTarget Id 重复：{}", id);
+        }
+        *max = (*max).max(id);
+    }
+    for child in element.children.iter().filter_map(XMLNode::as_element) {
+        collect_pointee_ids_for_validation(child, seen, max)?;
+    }
+    Ok(())
+}
+
 pub(crate) fn inject_groups(
     root: &mut Element,
     prototype: &RawClip,
@@ -1950,6 +2006,8 @@ mod tests {
         .unwrap();
         assert!(!info.tempo_automation_written);
 
+        validate_live_set(&root).unwrap();
+
         let xml = String::from_utf8(serialize_xml(&root).unwrap()).unwrap();
         assert!(xml.contains("Velocity=\"100\""));
         assert!(xml.contains("MidiKey Value=\"64\""));
@@ -2000,6 +2058,8 @@ mod tests {
         )
         .unwrap();
 
+        validate_live_set(&root).unwrap();
+
         let xml = String::from_utf8(serialize_xml(&root).unwrap()).unwrap();
         assert_eq!(xml.matches("<GroupTrack ").count(), 1);
         assert_eq!(xml.matches("<MidiTrack").count(), 2);
@@ -2032,6 +2092,8 @@ mod tests {
         )
         .unwrap();
         assert!(info.tempo_automation_written);
+
+        validate_live_set(&root).unwrap();
 
         let xml = String::from_utf8(serialize_xml(&root).unwrap()).unwrap();
         assert!(xml.contains("<AutomationEnvelope"));
