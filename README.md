@@ -203,8 +203,8 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 ## 8. 已验证
 
 - 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、ID 重映射、Arrangement Clip 注入、CC64 Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
-- 单通道 1,228 音符：输出 172 KB `.als`。
-- 5.4 万音符黑乐谱：输出约 760 KB `.als`，最大复音 89，3 个 Tempo 自动化点。
+- 单通道 1,228 音符、含 CC64 自动化：输出约 184 KB `.als`。
+- 5.4 万音符黑乐谱、15 个通道组：输出约 5.0 MB `.als`（57.8 MB XML），最大复音 89，3 个 Tempo 自动化点。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
 - `cargo test`：7 个单元测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
 
