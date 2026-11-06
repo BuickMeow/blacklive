@@ -1069,6 +1069,11 @@ pub(crate) fn inject_groups(
 
                     let targets = controller_targets(&new_child);
                     strip_midi_clips(&mut new_child);
+                    if child.notes.is_empty() {
+                        clear_track_devices(&mut new_child);
+                        new_tracks.push(XMLNode::Element(new_child));
+                        continue;
+                    }
                     let events = ensure_arranger_events(&mut new_child)?;
                     events
                         .children
@@ -1324,6 +1329,18 @@ fn strip_midi_clips(element: &mut Element) {
         .filter_map(XMLNode::as_mut_element)
     {
         strip_midi_clips(child);
+    }
+}
+
+/// Remove the instrument from a cloned child track while keeping the track
+/// itself. Used for source tracks that have MIDI events but no notes.
+fn clear_track_devices(track: &mut Element) {
+    if let Some(devices) = track
+        .get_mut_child("DeviceChain")
+        .and_then(|chain| chain.get_mut_child("DeviceChain"))
+        .and_then(|chain| chain.get_mut_child("Devices"))
+    {
+        devices.children.clear();
     }
 }
 
@@ -2574,6 +2591,60 @@ mod tests {
         assert!(xml.contains("Piano A"));
         assert!(xml.contains("Piano B"));
         assert_eq!(xml.matches("<TrackGroupId Value=\"").count(), 3);
+    }
+
+    #[test]
+    fn single_mode_empty_child_keeps_track_without_instrument() {
+        let mut root = parse_xml(MINI_GROUP.as_bytes()).unwrap();
+        let clips = enumerate_clips(&root).unwrap();
+        let groups = vec![GroupPlan {
+            channel: 0,
+            group_name: "A01".to_string(),
+            prototype: clips[0].clone(),
+            children: vec![
+                ChildPlan {
+                    source_track: 0,
+                    track_name: "Piano A".to_string(),
+                    clip_name: "A".to_string(),
+                    notes: notes(),
+                    clip_length_beats: 4.0,
+                },
+                ChildPlan {
+                    source_track: 1,
+                    track_name: "Empty".to_string(),
+                    clip_name: "Empty".to_string(),
+                    notes: Vec::new(),
+                    clip_length_beats: 0.0,
+                },
+            ],
+        }];
+        inject_groups(
+            &mut root,
+            GroupInjectRequest {
+                groups: &groups,
+                clip_start_beats: 0.0,
+                bpm: 120.0,
+                time_signature: Some((4, 4)),
+                tempo_map: None,
+                controllers: &controllers(),
+                pitch_bends: &pitch_bends(),
+                ppq: 480,
+                write_pitch_bend: true,
+                write_cc_automation: false,
+                strip_instrument_effects: true,
+            },
+        )
+        .unwrap();
+
+        validate_live_set(&root).unwrap();
+
+        let xml = String::from_utf8(serialize_xml(&root).unwrap()).unwrap();
+        assert_eq!(xml.matches("<GroupTrack ").count(), 1);
+        assert_eq!(xml.matches("<MidiTrack").count(), 2);
+        assert_eq!(xml.matches("<InstrumentGroupDevice").count(), 1);
+        assert_eq!(xml.matches("<MidiClip").count(), 1);
+        assert_eq!(xml.matches("<MidiNoteEvent").count(), 2);
+        assert!(xml.contains("Empty"));
     }
 
     #[test]

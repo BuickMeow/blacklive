@@ -308,7 +308,7 @@ pub fn inspect_default_template() -> Result<TemplateReport>;
 - 68 万音符黑 MIDI（5 MB 输入、15 个通道组）：release 下约 3.3 秒转换，输出约 4.2 MB `.als`，峰值内存约 1.7 GB。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
 - A01/A02 不同原型测试：A01 使用 Operator 链，A02 使用 Drift 链；输出正确按通道选择不同原型，ID 校验通过。
-- `cargo test`：7 个单元测试 + 3 个内置模板集成测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
+- `cargo test`：8 个单元测试 + 3 个内置模板集成测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
 
 手动集成测试：
 
