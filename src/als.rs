@@ -178,7 +178,8 @@ pub(crate) struct GroupInjectRequest<'a> {
     /// channel -> raw 14-bit pitch bend events.
     pub pitch_bends: &'a BTreeMap<u8, Vec<PitchBendEvent>>,
     pub ppq: u16,
-    pub write_midi_automation: bool,
+    pub write_pitch_bend: bool,
+    pub write_cc_automation: bool,
     pub strip_instrument_effects: bool,
 }
 
@@ -920,7 +921,9 @@ pub(crate) fn inject_groups(
     }
     for group in req.groups {
         for child in &group.children {
-            if !child.clip_length_beats.is_finite() || child.clip_length_beats <= 0.0 {
+            if !child.clip_length_beats.is_finite()
+                || (child.clip_length_beats <= 0.0 && !child.notes.is_empty())
+            {
                 bail!("内部错误：Clip 长度必须是正数");
             }
         }
@@ -1065,7 +1068,7 @@ pub(crate) fn inject_groups(
                         write_note_ids,
                     )?;
                     clear_clip_envelopes(new_clip);
-                    if req.write_midi_automation {
+                    if req.write_pitch_bend {
                         add_midi_automation(
                             new_clip,
                             group.channel,
@@ -1074,6 +1077,8 @@ pub(crate) fn inject_groups(
                             &targets,
                             req.ppq,
                             child.clip_length_beats,
+                            req.write_cc_automation,
+                            req.write_pitch_bend,
                             &mut warnings,
                         )?;
                     }
@@ -1125,8 +1130,12 @@ pub(crate) fn inject_groups(
                     set_record_arm(&mut new_midi, false);
                     set_midi_output_to_track(&mut new_midi, new_instrument_id, &instrument_name);
 
-                    let targets = controller_targets(&new_midi);
                     strip_midi_clips(&mut new_midi);
+                    if child.notes.is_empty() {
+                        new_tracks.push(XMLNode::Element(new_midi));
+                        continue;
+                    }
+                    let targets = controller_targets(&new_midi);
                     let events = ensure_arranger_events(&mut new_midi)?;
                     events
                         .children
@@ -1149,7 +1158,7 @@ pub(crate) fn inject_groups(
                     clear_clip_envelopes(new_clip);
                     // All MIDI tracks feed the same instrument. Put channel-wide
                     // CC/Pitch Bend automation on the first MIDI track only.
-                    if req.write_midi_automation && index == 0 {
+                    if req.write_pitch_bend && index == 0 {
                         add_midi_automation(
                             new_clip,
                             group.channel,
@@ -1158,6 +1167,8 @@ pub(crate) fn inject_groups(
                             &targets,
                             req.ppq,
                             child.clip_length_beats,
+                            req.write_cc_automation,
+                            req.write_pitch_bend,
                             &mut warnings,
                         )?;
                     }
@@ -1566,16 +1577,20 @@ fn add_midi_automation(
     targets: &BTreeMap<u8, String>,
     ppq: u16,
     length: f64,
+    write_cc: bool,
+    write_pb: bool,
     warnings: &mut Vec<String>,
 ) -> Result<()> {
     let mut next_envelope_id = next_clip_envelope_id(clip);
 
-    if let Some(channel_controllers) = controllers.get(&channel) {
+    if write_cc && let Some(channel_controllers) = controllers.get(&channel) {
         for (controller, events) in channel_controllers {
-            let Some(target_id) = targets.get(controller) else {
+            // ControllerTargets.0 is Pitch Bend; CC n is ControllerTargets.(n+1).
+            let target_index = controller.saturating_add(1);
+            let Some(target_id) = targets.get(&target_index) else {
                 if *controller == 64 {
                     warnings.push(format!(
-                        "通道 A{:02} 的轨道没有 ControllerTargets.{controller}，CC64 未写入。",
+                        "通道 A{:02} 的轨道没有 ControllerTargets.{target_index}，CC64 未写入。",
                         channel + 1
                     ));
                 }
@@ -1590,12 +1605,13 @@ fn add_midi_automation(
         }
     }
 
-    if let Some(events) = pitch_bends.get(&channel)
+    if write_pb
+        && let Some(events) = pitch_bends.get(&channel)
         && let Some(points) = pitch_bend_points(events, ppq, length)
     {
-        let Some(target_id) = targets.get(&128) else {
+        let Some(target_id) = targets.get(&0) else {
             warnings.push(format!(
-                "通道 A{:02} 的轨道没有 ControllerTargets.128，Pitch Bend 未写入。",
+                "通道 A{:02} 的轨道没有 ControllerTargets.0（Pitch Bend），Pitch Bend 未写入。",
                 channel + 1
             ));
             return Ok(());
@@ -1619,29 +1635,30 @@ fn pitch_bend_points(events: &[PitchBendEvent], ppq: u16, length: f64) -> Option
         by_tick.insert(event.tick, event.value);
     }
 
-    let mut initial = 8192.0;
+    let mut initial = 0.0;
     let mut changes = Vec::new();
     for (tick, value) in by_tick {
         let beat = tick as f64 / ppq as f64;
         if beat > length {
             continue;
         }
+        let signed = value as i32 - 8192;
         if beat == 0.0 {
-            initial = value as f64;
+            initial = signed as f64;
         } else {
-            changes.push((beat, value as f64));
+            changes.push((beat, signed as f64));
         }
     }
 
     if changes.is_empty() {
-        return if initial == 8192.0 {
+        return if initial == 0.0 {
             None
         } else {
             Some(vec![(-63_072_000.0, initial)])
         };
     }
 
-    let mut points = vec![(-63_072_000.0, initial)];
+    let mut points = vec![(-63_072_000.0, initial), (0.0, initial)];
     let mut current = initial;
     for (beat, value) in changes {
         if value == current {
@@ -1650,7 +1667,7 @@ fn pitch_bend_points(events: &[PitchBendEvent], ppq: u16, length: f64) -> Option
         points.push((beat, value));
         current = value;
     }
-    if points.len() <= 1 {
+    if points.len() <= 2 {
         None
     } else {
         Some(points)
@@ -2322,8 +2339,8 @@ mod tests {
      <DeviceChain><Devices><InstrumentGroupDevice Id="2"><UserName Value="Grand Piano" /></InstrumentGroupDevice></Devices></DeviceChain>
      <Mixer><Pointee Id="400" /></Mixer>
      <MidiControllers>
-      <ControllerTargets.64 Id="900"><LockEnvelope Value="0" /></ControllerTargets.64>
-      <ControllerTargets.128 Id="898"><LockEnvelope Value="0" /></ControllerTargets.128>
+      <ControllerTargets.65 Id="900"><LockEnvelope Value="0" /></ControllerTargets.65>
+      <ControllerTargets.0 Id="898"><LockEnvelope Value="0" /></ControllerTargets.0>
      </MidiControllers>
     </DeviceChain>
     <ClipSlotList>
@@ -2448,7 +2465,8 @@ mod tests {
                 controllers: &controllers(),
                 pitch_bends: &pitch_bends(),
                 ppq: 480,
-                write_midi_automation: true,
+                write_pitch_bend: true,
+                write_cc_automation: true,
                 strip_instrument_effects: true,
             },
         )
@@ -2465,8 +2483,8 @@ mod tests {
         assert_eq!(xml.matches("<MidiTrack").count(), 1);
         assert_eq!(xml.matches("<MidiNoteEvent").count(), 2);
         assert_eq!(xml.matches("<ClipEnvelope").count(), 2);
-        assert!(xml.contains("ControllerTargets.128"));
-        assert!(xml.contains("Value=\"16383\""));
+        assert!(xml.contains("ControllerTargets.0"));
+        assert!(xml.contains("Value=\"8191\""));
     }
 
     #[test]
@@ -2505,7 +2523,8 @@ mod tests {
                 controllers: &controllers(),
                 pitch_bends: &pitch_bends(),
                 ppq: 480,
-                write_midi_automation: true,
+                write_pitch_bend: true,
+                write_cc_automation: true,
                 strip_instrument_effects: true,
             },
         )
@@ -2540,7 +2559,8 @@ mod tests {
                 controllers: &controllers(),
                 pitch_bends: &pitch_bends(),
                 ppq: 480,
-                write_midi_automation: false,
+                write_pitch_bend: false,
+                write_cc_automation: false,
                 strip_instrument_effects: true,
             },
         )

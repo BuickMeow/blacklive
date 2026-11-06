@@ -62,6 +62,8 @@ pub struct MidiStats {
     pub track_names: Vec<String>,
     /// Track names by source track index; missing/empty names are omitted.
     pub track_names_by_index: BTreeMap<u16, String>,
+    /// source track -> channels that had any MIDI message.
+    pub track_channels: BTreeMap<u16, BTreeSet<u8>>,
     /// channel -> controller number -> absolute-tick events.
     pub controllers: BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
     /// channel -> raw 14-bit pitch bend events.
@@ -101,6 +103,7 @@ impl Default for MidiStats {
             track_count: 0,
             track_names: Vec::new(),
             track_names_by_index: BTreeMap::new(),
+            track_channels: BTreeMap::new(),
             controllers: BTreeMap::new(),
             pitch_bends: BTreeMap::new(),
             note_count: 0,
@@ -209,6 +212,11 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
             match event.kind {
                 TrackEventKind::Midi { channel, message } => {
                     let channel = channel.as_int();
+                    stats
+                        .track_channels
+                        .entry(track_idx as u16)
+                        .or_default()
+                        .insert(channel);
                     match message {
                         MidiMessage::NoteOn { key, vel } => {
                             let key = key.as_int();

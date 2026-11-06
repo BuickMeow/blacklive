@@ -32,8 +32,12 @@ pub struct ConvertOptions {
     pub trim_same_pitch: bool,
     /// Create one child track per source MIDI track inside each channel group.
     pub split_source_tracks: bool,
-    /// Write MIDI controllers and pitch bend as clip envelope automation.
-    pub write_midi_automation: bool,
+    /// Keep source tracks that have MIDI events but no notes as empty child tracks.
+    pub keep_empty_tracks: bool,
+    /// Write MIDI Pitch Bend as clip envelope automation.
+    pub write_pitch_bend: bool,
+    /// Write MIDI CC automation. Temporarily off; CC-to-effect mapping is future work.
+    pub write_cc_automation: bool,
     /// Bypass Reverb/Delay/Chorus/Echo devices inside the cloned instrument.
     pub strip_instrument_effects: bool,
 }
@@ -53,7 +57,9 @@ impl Default for ConvertOptions {
             clip_name: None,
             trim_same_pitch: false,
             split_source_tracks: true,
-            write_midi_automation: true,
+            keep_empty_tracks: true,
+            write_pitch_bend: true,
+            write_cc_automation: false,
             strip_instrument_effects: true,
         }
     }
@@ -262,6 +268,53 @@ pub fn convert_midi_to_als(
         });
     }
 
+    if opts.keep_empty_tracks && opts.split_source_tracks {
+        let mut group_indices: BTreeMap<u8, usize> = BTreeMap::new();
+        for (index, group) in groups.iter().enumerate() {
+            group_indices.insert(group.channel, index);
+        }
+        for (source_track, channels) in &parsed.stats.track_channels {
+            for channel in channels {
+                let Some(&group_index) = group_indices.get(channel) else {
+                    continue;
+                };
+                let group = &mut groups[group_index];
+                if group
+                    .children
+                    .iter()
+                    .any(|child| child.source_track == *source_track)
+                {
+                    continue;
+                }
+                let source_name = parsed
+                    .stats
+                    .track_names_by_index
+                    .get(source_track)
+                    .cloned()
+                    .filter(|name| !name.trim().is_empty());
+                let mut track_name = source_name
+                    .unwrap_or_else(|| format!("{}-E{:02}", group.group_name, source_track + 1));
+                if group
+                    .children
+                    .iter()
+                    .any(|child| child.track_name == track_name)
+                {
+                    track_name = format!("{track_name} [src {}]", source_track + 1);
+                }
+                group.children.push(ChildPlan {
+                    source_track: *source_track,
+                    track_name: track_name.clone(),
+                    clip_name: track_name,
+                    notes: Vec::new(),
+                    clip_length_beats: 0.0,
+                });
+            }
+        }
+        for group in &mut groups {
+            group.children.sort_by_key(|child| child.source_track);
+        }
+    }
+
     if groups.is_empty() {
         bail!("没有可写入的通道分组");
     }
@@ -295,7 +348,8 @@ pub fn convert_midi_to_als(
             controllers: &parsed.stats.controllers,
             pitch_bends: &parsed.stats.pitch_bends,
             ppq: parsed.stats.ppq,
-            write_midi_automation: opts.write_midi_automation,
+            write_pitch_bend: opts.write_pitch_bend,
+            write_cc_automation: opts.write_cc_automation,
             strip_instrument_effects: opts.strip_instrument_effects,
         },
     )?;

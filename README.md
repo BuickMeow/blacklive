@@ -29,12 +29,13 @@ A02 (Group)
 
 - 每个 MIDI 通道生成一个 **GroupTrack**，命名 `A01`、`A02`……
 - 同一通道内，每个源 MIDI 轨道生成一条**纯 MIDI 子轨**；该通道所有子轨都在同一个 Group 里。
+- 有 MIDI 事件但没有音符的源轨会保留为空 MIDI 轨（无 Clip、无乐器），不会丢轨。
 - 每个 Group 只有一个钢琴实例 `A01 Inst`，所有 MIDI 子轨都路由到它。
 - Group 从模板里的原型 Group 克隆，Group 的自动化、效果器、Mixer 设置都会保留。
 - 如果模板里已经有名为 `A01`、`A02`… 的 Group，会优先用对应 Group 作为该通道的原型；没有则使用界面里选中的默认原型。这样可以给不同通道不同乐器/效果。
 - MIDI 子轨的音频输出不重要（它们没有乐器）；`A01 Inst` 的音频输出指向 Group。
 - 每个 MIDI 子轨生成一个 Arrangement Clip。
-- MIDI CC（包括 CC64 踏板）和 Pitch Bend 写在第一条 MIDI 子轨的 Clip Envelope 里，对整个通道共用一台钢琴生效，避免重复自动化。
+- Pitch Bend 写在第一条 MIDI 子轨的 Clip Envelope 里，对整个通道共用一台钢琴生效。MIDI CC 暂时只解析/统计，不写入；后续再做 CC→效果映射。
 - MIDI Tempo Map 写成 Master Tempo 自动化。
 
 也兼容旧式单轨模式：Group 里只有一条“乐器 + Clip”轨道时，转换器会按源轨道克隆这条轨（每子轨一个乐器）。
@@ -131,16 +132,15 @@ Ableton 的 `Time` / `Duration` 使用四分音符 beat。PPQ 从 MIDI 头读取
 - 同音高重叠默认保留，可勾选截短前音。
 - 没有 Note Off 的音符丢弃，避免超长挂音。
 
-### MIDI / CC 自动化
+### Pitch Bend 自动化
 
-- 解析所有 MIDI CC（0–127），按通道保存。
+- MIDI CC 仍然解析并按通道统计，界面显示数量；暂时不写 Clip Envelope。
 - 每个子轨 Clip 写入对应的 `ClipEnvelope` 自动化。
 - `ControllerTargets.N` 的 ID 在克隆子轨时会重映射；ClipEnvelope 指向重映射后的 ID。
-- 同一时间点的重复 CC 只保留最后一个；值不变时不重复写事件。
-- CC 变化用同一时间点的两个 `FloatEvent`（旧值 + 新值）写成阶跃，避免 Live 插值成渐变。
-- Pitch Bend 使用 `ControllerTargets.128`，按 MIDI 原始 14-bit 值 0..16383（中心 8192）写线性包络。
+- Pitch Bend 使用 `ControllerTargets.0`，按 Live 的 -8192..8191（中心 0）写线性包络。
+- 已用 `luyou.als` 的 0→8191→0 PB Envelope 对照：target、sentinel、时间点和值范围一致。
 - 当前 **不写 Channel Pressure / Poly Pressure**（Aftertouch 按你的要求不做）。
-- 同一通道的 Pitch Bend 会复制到该通道的每条子轨 Clip。
+- Pitch Bend 只写在第一条 MIDI 子轨；其它子轨只带音符。
 
 ### Group / 子轨克隆
 
@@ -236,6 +236,7 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 - 每个 Group 包含该通道的所有源 MIDI 子轨，但只保留一个钢琴实例 `A01 Inst`；所有 MIDI 子轨通过 `MIDI To` 路由到它。这样 CPU 不随子轨数增长。
 - 旧式模板（每条子轨一个乐器）仍兼容，但不推荐高密度黑乐谱使用。
 - 黑乐谱优先把 Reverb/Delay 放到 Group 或共享 Return，不要在每条子轨里各克隆一个。转换器默认会关闭原型乐器内部的 Reverb/Delay/Chorus/Echo，Group/Return 效果保留。
+- 当前默认是**干声**：不自动添加 EQ/Compressor/Reverb；需要时在 A01/A02 Group 或 Return 上手动加。
 - 建议给钢琴设置合适的复音上限/voice stealing，并考虑在最终播放时 freeze/flatten。
 - 如果所有通道都是 program 0，用一个默认钢琴原型就够；需要每通道不同音色时再做 A01/A02 原型。
 
@@ -243,11 +244,12 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 
 - 路由 Group 需要 1 条乐器轨 + 1 条 MIDI 轨；旧式单轨 Group 仍兼容。
 - 可以按 `A01`、`A02`… 提供不同原型 Group；未提供的通道使用默认原型。
-- 写 MIDI CC 和 Pitch Bend 自动化；Channel Pressure / Poly Pressure 未写入。
-- Pitch Bend 的 14-bit 编码按通用 MIDI 处理；需要你在 Live 里验证一次中心值和上下限。
+- 只写 Pitch Bend 自动化；MIDI CC 暂时只解析/统计，不写入；Channel Pressure / Poly Pressure 未写入。
+- Pitch Bend 已按 `luyou.als` 的 `.0 / -8192..8191` 对照；仍建议在 Live 里试听一次。
 - Program Change 被忽略；不会按音色切换分轨。
 - MIDI Port 被忽略；只按 channel 分组。
 - 模板里其他 Group/轨道会保留，建议使用干净模板。
+- 有 MIDI 事件但无音符的源轨会保留为空 MIDI 轨；完全没有 MIDI 事件的 conductor/meta-only 轨不会建。
 - 当前用 `midly::Smf::parse` 一次性解析；1 万音符没问题，上亿音符需要复用 yinhe 的惰性解析。
 - 尚未在 Live 内自动试听；需要你打开输出验证音色、力度、踏板和 Group 效果。
 
@@ -255,8 +257,8 @@ pub fn inspect_template(path: &Path) -> Result<TemplateReport>;
 
 ## 9. 已验证
 
-- 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、全局 ID 重映射、Arrangement Clip 注入、MIDI 路由、CC64 Clip 自动化、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
-- 单通道 1,228 音符、含 CC64 自动化：输出约 184 KB `.als`。
+- 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、全局 ID 重映射、Arrangement Clip 注入、MIDI 路由、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
+- 单通道 1,228 音符：输出约 184 KB `.als`。
 - 5.4 万音符黑乐谱、15 个通道组：路由模式下输出约 1.1 MB `.als`；A01 为 1 个钢琴实例 + 29 条 MIDI 子轨，所有 MIDI 子轨都路由到 `A01 Inst`。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
 - A01/A02 不同原型测试：A01 使用 Operator 链，A02 使用 Drift 链；输出正确按通道选择不同原型，ID 校验通过。
@@ -278,7 +280,7 @@ cargo test --test manual_group -- --ignored --nocapture
 1. **模板**：请提供 `template.als`：一个 Group，命名 `A01`，里面恰好一条 Grand Piano MIDI 轨 + 一个占位 Clip。
 2. **通道/乐器**：如果不同通道要不同钢琴/乐器，请在模板里放 `A01`、`A02`… 各自的原型 Group；否则统一用默认原型。
 3. **Group 效果差异**：同名 `A01`/`A02` 原型 Group 可以带不同效果器/自动化；请按每通道 CC 报告给出映射。
-4. **Pitch Bend 编码验证**：当前按 0..16383 写入；请在 Live 里看中心/上下限是否正确。Aftertouch 按你的要求不做。
+4. **Pitch Bend**：已按 `luyou.als` 的 `.0 / 0→8191→0` 对照；请在 Live 里试听一次。Aftertouch 按你的要求不做。
 5. **Program Change**：是否需要按 Program Change 切换音色/分轨？
 6. **同通道多轨**：默认每个源 MIDI 轨道一条子轨；是否保持？
 7. **Live 版本**：只自用 12.3，还是需要兼容 11/10？如果要兼容 10，请提供一个 Live 10 模板。
