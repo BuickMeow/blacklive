@@ -12,6 +12,7 @@ eframe = "0.37"
 egui = "0.37"
 egui_extras = "0.37"
 flate2 = "1"
+png = "0.18"
 midly = "0.5"
 rfd = "0.17"
 xmltree = { version = "0.12", features = ["attribute-order"] }

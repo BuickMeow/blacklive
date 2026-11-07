@@ -1,11 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, TryRecvError};
+use std::time::Instant;
 
 use blacklive::{
     ConversionResult, ConvertOptions, MidiStats, TemplateReport, convert_midi_to_als,
     convert_midi_to_als_with_default_template, parse_channel_filter,
 };
-use eframe::egui::{self, CursorIcon, ViewportCommand};
+use eframe::egui::{self, ViewportCommand};
 
 use super::actions::UiActions;
 use super::project::{ProjectView, ViewMode};
@@ -72,6 +73,10 @@ pub(crate) struct App {
     pub(crate) tap_times: Vec<std::time::Instant>,
     pub(crate) midi_parse_rx: Option<Receiver<Result<MidiStats, String>>>,
     pub(crate) window_title: String,
+    snapshot_path: Option<PathBuf>,
+    snapshot_frames: u32,
+    snapshot_requested: bool,
+    snapshot_started: Instant,
 }
 
 impl App {
@@ -130,6 +135,10 @@ impl App {
             tap_times: Vec::new(),
             midi_parse_rx: None,
             window_title: String::new(),
+            snapshot_path: std::env::var_os("BLACKLIVE_SNAPSHOT").map(PathBuf::from),
+            snapshot_frames: 0,
+            snapshot_requested: false,
+            snapshot_started: Instant::now(),
         };
 
         let args: Vec<String> = std::env::args().skip(1).collect();
@@ -435,6 +444,30 @@ impl App {
         }
     }
 
+    fn maybe_take_snapshot(&mut self, ctx: &egui::Context) {
+        let Some(path) = self.snapshot_path.clone() else {
+            return;
+        };
+        if self.snapshot_requested {
+            return;
+        }
+        let parsed = self.midi_path.trim().is_empty()
+            || (self.midi_parse_rx.is_none() && self.midi_stats.is_some());
+        let timed_out = self.snapshot_started.elapsed().as_secs() > 5;
+        if self.snapshot_frames < 1 || (!parsed && !timed_out) {
+            return;
+        }
+        self.snapshot_requested = true;
+        let ctx_for_callback = ctx.clone();
+        ctx.request_screenshot(move |image| {
+            if let Err(error) = save_color_image(&path, &image) {
+                eprintln!("无法保存无头截图 {}: {error:#}", path.display());
+            }
+            ctx_for_callback.send_viewport_cmd(ViewportCommand::Close);
+        });
+        ctx.request_repaint();
+    }
+
     fn apply_actions(&mut self, actions: UiActions, ctx: &egui::Context) {
         if let Some(view) = actions.set_view {
             self.view_mode = view;
@@ -475,21 +508,22 @@ impl App {
         }
     }
 
-    fn update_window_title(&mut self, ctx: &egui::Context, project: &ProjectView) {
-        let title = if project.placeholder {
-            "Blacklive".to_string()
-        } else {
-            format!("{} — Blacklive", project.title)
-        };
-        if title != self.window_title {
-            ctx.send_viewport_cmd(ViewportCommand::Title(title.clone()));
-            self.window_title = title;
+    fn update_window_title(&mut self, ctx: &egui::Context, _project: &ProjectView) {
+        if self.window_title != " " {
+            ctx.send_viewport_cmd(ViewportCommand::Title(" ".to_string()));
+            self.window_title = " ".to_string();
         }
     }
 }
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if self.snapshot_path.is_some() && !self.snapshot_requested {
+            self.snapshot_frames = self.snapshot_frames.saturating_add(1);
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::RequestPaintWhileHidden);
+            ui.ctx().request_repaint();
+        }
         self.handle_dropped_files(ui.ctx());
         self.poll_parse();
         self.advance_transport(ui.ctx());
@@ -504,7 +538,7 @@ impl eframe::App for App {
             .show_separator_line(false)
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {
-                chrome::title_bar(ui, self, &mut actions);
+                chrome::title_bar(ui, &project, &mut actions);
             });
         egui::Panel::top("blacklive_transport")
             .exact_size(30.0)
@@ -543,52 +577,13 @@ impl eframe::App for App {
 
         self.apply_actions(actions, ui.ctx());
         self.update_window_title(ui.ctx(), &project);
-        resize_handles(ui.ctx());
+        self.maybe_take_snapshot(ui.ctx());
         ui.painter().rect_stroke(
-            ui.max_rect().shrink(0.5),
+            ui.max_rect(),
             egui::CornerRadius::ZERO,
             egui::Stroke::new(1.0, egui::Color32::from_rgb(0x4F, 0x4F, 0x4F)),
             egui::StrokeKind::Inside,
         );
-    }
-}
-
-fn resize_handles(ctx: &egui::Context) {
-    let Some(pos) = ctx.pointer_latest_pos() else {
-        return;
-    };
-    let screen = ctx.content_rect();
-    let edge = 4.0;
-    let near_left = pos.x <= screen.left() + edge;
-    let near_right = pos.x >= screen.right() - edge;
-    let near_top = pos.y <= screen.top() + edge;
-    let near_bottom = pos.y >= screen.bottom() - edge;
-    let direction = match (near_top, near_bottom, near_left, near_right) {
-        (true, _, true, _) => Some(egui::ResizeDirection::NorthWest),
-        (true, _, _, true) => Some(egui::ResizeDirection::NorthEast),
-        (_, true, true, _) => Some(egui::ResizeDirection::SouthWest),
-        (_, true, _, true) => Some(egui::ResizeDirection::SouthEast),
-        (true, _, _, _) => Some(egui::ResizeDirection::North),
-        (_, true, _, _) => Some(egui::ResizeDirection::South),
-        (_, _, true, _) => Some(egui::ResizeDirection::West),
-        (_, _, _, true) => Some(egui::ResizeDirection::East),
-        _ => None,
-    };
-    let Some(direction) = direction else {
-        return;
-    };
-    ctx.set_cursor_icon(match direction {
-        egui::ResizeDirection::North | egui::ResizeDirection::South => CursorIcon::ResizeVertical,
-        egui::ResizeDirection::East | egui::ResizeDirection::West => CursorIcon::ResizeHorizontal,
-        egui::ResizeDirection::NorthEast | egui::ResizeDirection::SouthWest => {
-            CursorIcon::ResizeNeSw
-        }
-        egui::ResizeDirection::NorthWest | egui::ResizeDirection::SouthEast => {
-            CursorIcon::ResizeNwSe
-        }
-    });
-    if ctx.input(|input| input.pointer.primary_pressed()) {
-        ctx.send_viewport_cmd(ViewportCommand::BeginResize(direction));
     }
 }
 
@@ -602,3 +597,19 @@ fn non_empty(value: &str) -> Option<String> {
 }
 
 use super::actions::{open_in_default, reveal_in_folder};
+
+fn save_color_image(path: &Path, image: &egui::ColorImage) -> anyhow::Result<()> {
+    use std::io::BufWriter;
+    let file = std::fs::File::create(path)?;
+    let writer = BufWriter::new(file);
+    let mut encoder = png::Encoder::new(writer, image.size[0] as u32, image.size[1] as u32);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header()?;
+    let mut data = Vec::with_capacity(image.pixels.len() * 4);
+    for pixel in &image.pixels {
+        data.extend_from_slice(&pixel.to_array());
+    }
+    writer.write_image_data(&data)?;
+    Ok(())
+}

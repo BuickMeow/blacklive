@@ -9,7 +9,7 @@ use super::icons;
 use super::project::{ProjectView, position_label};
 use super::theme;
 
-pub(crate) fn title_bar(ui: &mut Ui, app: &mut App, _actions: &mut UiActions) {
+pub(crate) fn title_bar(ui: &mut Ui, project: &ProjectView, _actions: &mut UiActions) {
     let rect = ui.max_rect();
     let painter = ui.painter();
     painter.rect_filled(rect, egui::CornerRadius::ZERO, theme::TITLE_BG);
@@ -24,6 +24,7 @@ pub(crate) fn title_bar(ui: &mut Ui, app: &mut App, _actions: &mut UiActions) {
         Stroke::new(1.0, Color32::from_rgb(0x5E, 0x5E, 0x5E)),
     );
 
+    // The left 78 px are reserved for the native macOS traffic lights.
     let drag_rect = Rect::from_min_max(Pos2::new(rect.left() + 78.0, rect.top()), rect.max);
     let drag = ui.interact(
         drag_rect,
@@ -33,82 +34,17 @@ pub(crate) fn title_bar(ui: &mut Ui, app: &mut App, _actions: &mut UiActions) {
     if drag.drag_started() {
         ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
     }
-    if drag.double_clicked() {
-        let maximized = ui.ctx().input(|i| i.viewport().maximized.unwrap_or(false));
-        ui.ctx()
-            .send_viewport_cmd(ViewportCommand::Maximized(!maximized));
-    }
 
     let focused = ui
         .ctx()
         .input(|input| input.viewport().focused.unwrap_or(true));
-    let button_y = rect.center().y;
-    for (index, (color, symbol)) in [(theme::RED, "×"), (theme::YELLOW, "−"), (theme::GREEN, "+")]
-        .into_iter()
-        .enumerate()
-    {
-        let center = Pos2::new(rect.left() + 14.0 + index as f32 * 20.0, button_y);
-        let hit = Rect::from_center_size(center, Vec2::splat(14.0));
-        let response = ui.interact(
-            hit,
-            ui.make_persistent_id(("traffic_light", index)),
-            Sense::click(),
-        );
-        let hovered = response.hovered();
-        let base = if focused {
-            color
-        } else {
-            theme::mix(color, theme::TITLE_BG, 0.72)
-        };
-        ui.painter().circle_filled(
-            center,
-            6.0,
-            if hovered {
-                theme::mix(base, Color32::WHITE, 0.18)
-            } else {
-                theme::mix(base, theme::TITLE_BG, 0.08)
-            },
-        );
-        ui.painter().circle_stroke(
-            center,
-            5.5,
-            Stroke::new(0.6, theme::mix(color, Color32::BLACK, 0.2)),
-        );
-        if hovered {
-            ui.painter().text(
-                center,
-                Align2::CENTER_CENTER,
-                symbol,
-                FontId::proportional(9.0),
-                Color32::from_black_alpha(150),
-            );
-            ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
-        }
-        if response.clicked() {
-            match index {
-                0 => ui.ctx().send_viewport_cmd(ViewportCommand::Close),
-                1 => ui.ctx().send_viewport_cmd(ViewportCommand::Minimized(true)),
-                _ => {
-                    let maximized = ui.ctx().input(|i| i.viewport().maximized.unwrap_or(false));
-                    ui.ctx()
-                        .send_viewport_cmd(ViewportCommand::Maximized(!maximized));
-                }
-            }
-        }
-    }
-
-    let title = if app.midi_path.trim().is_empty() {
-        "无标题".to_string()
-    } else {
-        super::project::project_title(&app.midi_path)
-    };
     theme::label_at(
         ui.painter(),
         Rect::from_min_max(
             Pos2::new(rect.left() + 100.0, rect.top()),
             Pos2::new(rect.right() - 100.0, rect.bottom()),
         ),
-        &title,
+        &project.title,
         11.0,
         if focused {
             Color32::from_rgb(0x3B, 0x3B, 0x3B)
@@ -127,26 +63,11 @@ pub(crate) fn transport_bar(
 ) {
     let rect = ui.max_rect();
     let painter = ui.painter();
-    painter.rect_filled(rect, egui::CornerRadius::ZERO, theme::SURFACE);
-    painter.hline(
-        rect.x_range(),
-        rect.top() + 0.5,
-        Stroke::new(1.0, Color32::from_rgb(0xC4, 0xC4, 0xC4)),
-    );
+    painter.rect_filled(rect, egui::CornerRadius::ZERO, theme::TITLE_BG);
     painter.hline(
         rect.x_range(),
         rect.bottom() - 0.5,
-        Stroke::new(1.0, Color32::from_rgb(0x6F, 0x6F, 0x6F)),
-    );
-    let lower = Rect::from_min_max(
-        Pos2::new(rect.left(), rect.top() + 17.0),
-        Pos2::new(rect.right(), rect.bottom() - 1.0),
-    );
-    painter.rect_filled(lower, egui::CornerRadius::ZERO, theme::TITLE_BG);
-    painter.hline(
-        lower.x_range(),
-        lower.top() + 0.5,
-        Stroke::new(1.0, Color32::from_rgb(0x6F, 0x6F, 0x6F)),
+        Stroke::new(1.0, Color32::from_rgb(0x5E, 0x5E, 0x5E)),
     );
 
     let top = rect.top() + 1.0;

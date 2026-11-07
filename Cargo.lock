@@ -456,6 +456,7 @@ dependencies = [
  "egui_extras",
  "flate2",
  "midly",
+ "png",
  "rfd",
  "xmltree",
 ]

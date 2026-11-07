@@ -739,7 +739,7 @@ fn tag_rows(ui: &mut Ui, app: &mut App, rect: Rect, mut y: f32) -> f32 {
             let active = app.browser_tag == *tag;
             let response = ui.interact(chip, ui.make_persistent_id(("tag", *tag)), Sense::click());
             let fill = if active {
-                theme::ACCENT
+                theme::ACCENT_FIELD
             } else if response.hovered() {
                 Color32::from_rgb(0xC4, 0xC4, 0xC4)
             } else {

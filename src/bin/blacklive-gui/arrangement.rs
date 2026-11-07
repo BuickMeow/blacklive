@@ -587,7 +587,7 @@ fn draw_io_fields(painter: &egui::Painter, rect: Rect, kind: TrackKind) {
                     seg,
                     egui::CornerRadius::ZERO,
                     if *segment == "Auto" {
-                        theme::ACCENT
+                        theme::ACCENT_FIELD
                     } else {
                         Color32::from_rgb(0xC9, 0xC9, 0xC9)
                     },

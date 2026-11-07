@@ -162,9 +162,29 @@ cargo run --release --bin blacklive
 - 顶部 BPM 字段可以点击输入；清空后跟随 MIDI/模板 BPM。旁边的 `Tap` 支持点拍测速。
 - 左侧浏览器「当前工程」里可以直接选择 MIDI、模板、输出路径，也可以触发解析/分析。
 - 底部「转换」是参数面板，「信息」显示 MIDI/模板/转换统计，「日志」显示完整日志。
+- 参数面板使用 WPF 风格 `StarGrid`（`Auto / * / 2*`）布局，不是固定列宽。
 - 导出后可直接「在 Live 中打开」或「打开所在文件夹」。
 
 > 界面只是 Live 风格的壳；音符、Group、Pitch Bend、Tempo 的转换逻辑没有变化。没有 MIDI 时，编曲区会显示与 Live 一致的空白工程和提示文字。
+
+### 无头截图
+
+开发时可以不开可见窗口截图：
+
+```bash
+BLACKLIVE_SNAPSHOT=/tmp/blacklive.png \
+  cargo run --release --bin blacklive
+
+BLACKLIVE_SNAPSHOT=/tmp/blacklive-loaded.png \
+  cargo run --release --bin blacklive -- /path/input.mid
+
+BLACKLIVE_VIEW=session BLACKLIVE_SNAPSHOT=/tmp/blacklive-session.png \
+  cargo run --release --bin blacklive
+```
+
+- 窗口以隐藏状态启动，保存 PNG 后自动退出。
+- 带 MIDI 参数时会等待后台解析完成再截图。
+- 截图是 egui framebuffer，不包含 macOS 系统标题栏和交通灯；交通灯在正常运行窗口时由 macOS 原生绘制。
 
 ---
 

@@ -403,7 +403,7 @@ fn draw_monitor(p: &egui::Painter, rect: Rect) {
             r,
             egui::CornerRadius::ZERO,
             if *label == "Auto" {
-                theme::ACCENT
+                theme::ACCENT_FIELD
             } else {
                 Color32::from_rgb(0xD8, 0xD8, 0xD8)
             },
@@ -567,7 +567,7 @@ fn draw_return_column(
         if index == 2 {
             Color32::from_rgb(0x9B, 0xC9, 0xE8)
         } else {
-            theme::ACCENT
+            theme::ACCENT_FIELD
         },
     );
     draw_fader(&p, rect.center().x, fader_top, fader_bottom, 0.72);

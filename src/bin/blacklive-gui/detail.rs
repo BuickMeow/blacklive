@@ -5,6 +5,7 @@ use super::App;
 use super::actions::UiActions;
 use super::icons;
 use super::project::ProjectView;
+use super::star_grid::{StarGrid, TrackSize, measure_text};
 use super::theme;
 use crate::app::DetailTab;
 
@@ -208,7 +209,8 @@ fn draw_converter_device(ui: &mut Ui, app: &mut App, project: &ProjectView, rect
         Align2::LEFT_CENTER,
     );
     let led_center = Pos2::new(header.right() - 38.0, header.center().y);
-    ui.painter().circle_filled(led_center, 3.5, theme::ACCENT);
+    ui.painter()
+        .circle_filled(led_center, 3.5, theme::ACCENT_FIELD);
     ui.painter().circle_stroke(
         led_center,
         3.5,
@@ -245,231 +247,136 @@ fn draw_converter_device(ui: &mut Ui, app: &mut App, project: &ProjectView, rect
         Pos2::new(rect.left() + 7.0, header.bottom() + 5.0),
         Pos2::new(rect.right() - 7.0, rect.bottom() - 5.0),
     );
-    let mut table_ui = ui.new_child(
-        egui::UiBuilder::new()
-            .max_rect(body)
-            .layout(egui::Layout::top_down(Align::Min)),
+    let labels = [
+        "BPM",
+        "移调",
+        "通道",
+        "Clip",
+        "最短时值",
+        "尾部",
+        "起点",
+        "Pitch Bend",
+        "拆分",
+        "效果",
+        "鼓",
+        "重叠",
+    ];
+    let auto_width = labels
+        .iter()
+        .map(|label| measure_text(ui, label, 9.5))
+        .fold(0.0, f32::max)
+        + 8.0;
+    let grid = StarGrid::new(
+        vec![
+            TrackSize::Auto,
+            TrackSize::Star(2.0),
+            TrackSize::Auto,
+            TrackSize::Star(2.0),
+            TrackSize::Star(1.0),
+        ],
+        vec![TrackSize::Fixed(19.0); 6],
+    )
+    .gaps(6.0, 1.0);
+    let cells = grid.cells(body, &[auto_width, 0.0, auto_width, 0.0, 0.0], &[]);
+    let cell = |row: usize, col: usize| cells[row][col];
+
+    let label = |ui: &Ui, rect: Rect, text: &str| {
+        theme::label_at(
+            ui.painter(),
+            rect,
+            text,
+            9.5,
+            theme::TEXT_DIM,
+            Align2::LEFT_CENTER,
+        )
+    };
+
+    label(ui, cell(0, 0), "BPM");
+    theme::text_edit_at(
+        ui,
+        cell(0, 1),
+        &mut app.bpm_text,
+        "跟随 MIDI",
+        10.0,
+        Align::Center,
     );
-    table_ui.set_clip_rect(body);
-    table_ui.style_mut().spacing.item_spacing = Vec2::new(5.0, 1.0);
-    let mut table = TableBuilder::new(&mut table_ui)
-        .id_salt("converter_params")
-        .resizable(false)
-        .striped(true)
-        .cell_layout(egui::Layout::left_to_right(Align::Center))
-        .column(Column::exact(56.0))
-        .column(Column::exact(132.0))
-        .column(Column::exact(56.0))
-        .column(Column::remainder())
-        .min_scrolled_height(0.0);
-    table = table.max_scroll_height(body.height());
-    table.body(|mut body| {
-        body.row(19.0, |mut row| {
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "BPM",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                let r = ui.max_rect().shrink2(Vec2::new(1.0, 1.0));
-                theme::text_edit_at(ui, r, &mut app.bpm_text, "跟随 MIDI", 10.0, Align::Center);
-            });
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "移调",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                let r = ui.max_rect().shrink2(Vec2::new(1.0, 1.0));
-                theme::drag_i32_at(ui, r, &mut app.transpose, " 半音", -48..=48);
-            });
-        });
-        body.row(19.0, |mut row| {
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "通道",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                let r = ui.max_rect().shrink2(Vec2::new(1.0, 1.0));
-                theme::text_edit_at(ui, r, &mut app.channels, "全部", 10.0, Align::Center);
-            });
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "Clip",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                let r = ui.max_rect().shrink2(Vec2::new(1.0, 1.0));
-                theme::text_edit_at(ui, r, &mut app.clip_name, "自动命名", 10.0, Align::Center);
-            });
-        });
-        body.row(19.0, |mut row| {
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "最短时值",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                let r = ui.max_rect().shrink2(Vec2::new(1.0, 1.0));
-                theme::drag_value_at(
-                    ui,
-                    r,
-                    &mut app.min_note_beats,
-                    " beats",
-                    0.01,
-                    0.0..=64.0,
-                    3,
-                );
-            });
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "尾部",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                let r = ui.max_rect().shrink2(Vec2::new(1.0, 1.0));
-                theme::drag_value_at(ui, r, &mut app.tail_beats, " beats", 0.1, 0.0..=128.0, 2);
-            });
-        });
-        body.row(19.0, |mut row| {
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "起点",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                let r = ui.max_rect().shrink2(Vec2::new(1.0, 1.0));
-                theme::drag_value_at(ui, r, &mut app.start_beats, " beats", 0.25, 0.0..=4096.0, 2);
-            });
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "Pitch Bend",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "自动 · RPN 折算",
-                    9.5,
-                    theme::TEXT,
-                    Align2::LEFT_CENTER,
-                );
-            });
-        });
-        body.row(19.0, |mut row| {
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "拆分",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                theme::toggle_at(
-                    ui,
-                    ui.max_rect(),
-                    &mut app.split_source_tracks,
-                    "按源轨道拆分",
-                );
-            });
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "效果",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                theme::toggle_at(
-                    ui,
-                    ui.max_rect(),
-                    &mut app.strip_instrument_effects,
-                    "关闭乐器内效果",
-                );
-            });
-        });
-        body.row(19.0, |mut row| {
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "鼓",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                theme::toggle_at(
-                    ui,
-                    ui.max_rect(),
-                    &mut app.include_drum_channel,
-                    "包含 GM 鼓",
-                );
-            });
-            row.col(|ui| {
-                theme::label_at(
-                    ui.painter(),
-                    ui.max_rect(),
-                    "重叠",
-                    9.5,
-                    theme::TEXT_DIM,
-                    Align2::LEFT_CENTER,
-                );
-            });
-            row.col(|ui| {
-                theme::toggle_at(ui, ui.max_rect(), &mut app.trim_same_pitch, "同音高截短");
-            });
-        });
-    });
+    label(ui, cell(0, 2), "移调");
+    theme::drag_i32_at(ui, cell(0, 3), &mut app.transpose, " 半音", -48..=48);
+
+    label(ui, cell(1, 0), "通道");
+    theme::text_edit_at(
+        ui,
+        cell(1, 1),
+        &mut app.channels,
+        "全部",
+        10.0,
+        Align::Center,
+    );
+    label(ui, cell(1, 2), "Clip");
+    theme::text_edit_at(
+        ui,
+        cell(1, 3),
+        &mut app.clip_name,
+        "自动命名",
+        10.0,
+        Align::Center,
+    );
+
+    label(ui, cell(2, 0), "最短时值");
+    theme::drag_value_at(
+        ui,
+        cell(2, 1),
+        &mut app.min_note_beats,
+        " beats",
+        0.01,
+        0.0..=64.0,
+        3,
+    );
+    label(ui, cell(2, 2), "尾部");
+    theme::drag_value_at(
+        ui,
+        cell(2, 3),
+        &mut app.tail_beats,
+        " beats",
+        0.1,
+        0.0..=128.0,
+        2,
+    );
+
+    label(ui, cell(3, 0), "起点");
+    theme::drag_value_at(
+        ui,
+        cell(3, 1),
+        &mut app.start_beats,
+        " beats",
+        0.25,
+        0.0..=4096.0,
+        2,
+    );
+    label(ui, cell(3, 2), "Pitch Bend");
+    theme::label_at(
+        ui.painter(),
+        cell(3, 3),
+        "自动 · RPN 折算",
+        9.5,
+        theme::TEXT,
+        Align2::LEFT_CENTER,
+    );
+
+    label(ui, cell(4, 0), "拆分");
+    theme::toggle_at(ui, cell(4, 1), &mut app.split_source_tracks, "按源轨道拆分");
+    label(ui, cell(4, 2), "效果");
+    theme::toggle_at(
+        ui,
+        cell(4, 3),
+        &mut app.strip_instrument_effects,
+        "关闭乐器内效果",
+    );
+
+    label(ui, cell(5, 0), "鼓");
+    theme::toggle_at(ui, cell(5, 1), &mut app.include_drum_channel, "包含 GM 鼓");
+    label(ui, cell(5, 2), "重叠");
+    theme::toggle_at(ui, cell(5, 3), &mut app.trim_same_pitch, "同音高截短");
 }
 
 fn draw_export_device(ui: &mut Ui, app: &mut App, rect: Rect, actions: &mut UiActions) {

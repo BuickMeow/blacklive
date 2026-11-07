@@ -19,16 +19,11 @@ pub(crate) const FIELD: Color32 = Color32::from_rgb(0xDF, 0xDF, 0xDF);
 pub(crate) const TEXT: Color32 = Color32::from_rgb(0x16, 0x16, 0x16);
 pub(crate) const TEXT_DIM: Color32 = Color32::from_rgb(0x5B, 0x5B, 0x5B);
 pub(crate) const TEXT_DISABLED: Color32 = Color32::from_rgb(0x7A, 0x7A, 0x7A);
-pub(crate) const ACCENT: Color32 = Color32::from_rgb(0xFF, 0xB9, 0x01);
 pub(crate) const ACCENT_DARK: Color32 = Color32::from_rgb(0xD8, 0x93, 0x00);
 pub(crate) const ACCENT_FIELD: Color32 = Color32::from_rgb(0xF4, 0xBC, 0x41);
-pub(crate) const ACCENT_LIGHT: Color32 = Color32::from_rgb(0xFF, 0xD2, 0x4A);
 pub(crate) const SELECTION: Color32 = Color32::from_rgb(0xCD, 0xF8, 0xFF);
 pub(crate) const METER_BG: Color32 = Color32::from_rgb(0x5B, 0x5B, 0x5B);
 pub(crate) const METER_GREEN: Color32 = Color32::from_rgb(0x76, 0xB8, 0x50);
-pub(crate) const RED: Color32 = Color32::from_rgb(0xFF, 0x5F, 0x57);
-pub(crate) const GREEN: Color32 = Color32::from_rgb(0x28, 0xC8, 0x40);
-pub(crate) const YELLOW: Color32 = Color32::from_rgb(0xFE, 0xBC, 0x2E);
 
 pub(crate) const CONTROL_H: f32 = 18.0;
 pub(crate) const TRACK_H: f32 = 88.0;
@@ -199,7 +194,7 @@ pub(crate) fn mix(a: Color32, b: Color32, b_amount: f32) -> Color32 {
 
 pub(crate) fn frame_rect(painter: &Painter, rect: Rect, color: Color32) {
     painter.rect_stroke(
-        rect.shrink(0.5),
+        rect,
         egui::CornerRadius::ZERO,
         Stroke::new(1.0, color),
         StrokeKind::Inside,
@@ -221,15 +216,15 @@ pub(crate) fn bevel_button(
 
     let (top, _bottom, text_color, border) = if !enabled {
         (
-            Color32::from_rgb(0xAD, 0xAD, 0xAD),
-            Color32::from_rgb(0xA2, 0xA2, 0xA2),
+            Color32::from_rgb(0x8E, 0x8E, 0x8E),
+            Color32::from_rgb(0x8E, 0x8E, 0x8E),
             TEXT_DISABLED,
-            Color32::from_rgb(0x89, 0x89, 0x89),
+            Color32::from_rgb(0x6E, 0x6E, 0x6E),
         )
     } else if active {
         (
-            ACCENT_LIGHT,
-            ACCENT_DARK,
+            ACCENT_FIELD,
+            ACCENT_FIELD,
             TEXT,
             Color32::from_rgb(0x7A, 0x59, 0x00),
         )
@@ -262,7 +257,7 @@ pub(crate) fn bevel_button(
         painter.hline(
             rect.x_range().shrink(1.0),
             rect.top() + 1.0,
-            Stroke::new(1.0, if active { ACCENT_LIGHT } else { PANEL_HI }),
+            Stroke::new(1.0, if active { ACCENT_FIELD } else { PANEL_HI }),
         );
         painter.hline(
             rect.x_range().shrink(1.0),
@@ -503,7 +498,7 @@ pub(crate) fn toggle_at(ui: &mut Ui, rect: Rect, on: &mut bool, label: &str) -> 
     );
     let painter = ui.painter();
     if *on {
-        painter.rect_filled(checked_rect, egui::CornerRadius::ZERO, ACCENT);
+        painter.rect_filled(checked_rect, egui::CornerRadius::ZERO, ACCENT_FIELD);
         painter.text(
             checked_rect.center(),
             Align2::CENTER_CENTER,
