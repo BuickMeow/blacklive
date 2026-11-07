@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:891b7064d32df232e03d1671ec5a75e1a253074c0d0f93823dea6ef8261259db",
+  "claims": [
+    {
+      "id": "claim_32b8a4661fa1445eb9f0fe0aad9ac969",
+      "statement": "GUI 使用 cargo run --release --bin blacklive 启动，主流程是选择 MIDI 后导出同名 .als，默认使用内置模板。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L120-L133",
+          "version": "repo-lines-v1:sha256:4a9b7abbfa09d77bbac57bd7d7868da6b4d661effa59f74a0079f6bbccbf76bb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBlNzE2OTVlNTI5MGM3NTIyZTFiNTIxNmFiZjEwZTNjNTk3ZDUwNWNiZDU3ZDZjMDgzODc5NjczMjY3ZTFjMzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFlMGViMzJmODlmOWI3NGI4YWE5NDI5ZDBmYjVmNjdmMDNjMWQ3OTYyMmZlYjQ5MzgxNTRlNDk4ZTY0YzA4MDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwZGI1YWFiOWYwNDBkMjNlNWRiMmQ0NTNlZWJkYWVhZTg5MWFlYmJiM2ZkYTVjM2M0ZDNmYzQyMzA0MmFiNjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMxZWNjZGJiYzk5YTI0ZDhkZDFiZjg3MWE3YmNjNjM2OWY4MDMzNjc3MDIxZWQ0NDkwZDJmMWJiNmJjZGY2MTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_afd23e4c63f04ea0854c643a3eac2822",
+      "statement": "embedded_template 测试覆盖内置 A01 路由结构、纯钢琴多通道/空轨转换，以及 PB 写在最长有音符子轨。",
+      "evidence": [
+        {
+          "resource": "repo://tests/embedded_template.rs#L116-L168",
+          "version": "repo-lines-v1:sha256:1f8ee2f9919af66d781bf6213563ee51a82f34ba6e2928c439090b58800afed5:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyY2Q0ZGI0OGEzNTBlOGYwYjQ3OTQ0YzQ2ZTNmZmRiYmExMzJkMjI5MGE5MWQ3MDEyYjU2ZWI0NmM4YWI0ZjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgzZTlkYWU1NDA4YzZhYWZjM2IzMGFjNzUwMGFjY2QzOTIxYTVhZmM4MjMyZWI3OWI2ZDY0MWNjOTBlODRmOTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjZjQ3YjJlMDE3MDFlMmM5ZDAxZjEwODVmZTdiZjZkNjMzMzc4YjkyOTBiMzcxYjA5MjEzZWMyOWM3ZDYzOTMifQ"
+        },
+        {
+          "resource": "repo://tests/embedded_template.rs#L44-L103",
+          "version": "repo-lines-v1:sha256:71c1ed2716ef077d8e662db4d3009cfc3f4b31254df2708f315f88560cb2f689:eyJzZWxlY3RlZExpbmVDb3VudCI6NjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyY2Q0ZGI0OGEzNTBlOGYwYjQ3OTQ0YzQ2ZTNmZmRiYmExMzJkMjI5MGE5MWQ3MDEyYjU2ZWI0NmM4YWI0ZjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE1OTM3Njc5MWU2OTQ3NmY3YTA3MTg5NmRjMjViOTEzN2VmODQyM2UzZTk2MzQwY2NmYWMzMzIzZDQyY2E1MWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI3ZGM1MjU4NWNmZDNjZjU3YmVkZjU1OTY4OGNjOGM3NzBkZjgzNmQ3NGNlZTY1NDU5Zjk3M2ZjMTlmZDdmNjUifQ"
+        },
+        {
+          "resource": "repo://tests/embedded_template.rs#L9-L42",
+          "version": "repo-lines-v1:sha256:aa03dea29f50b3fd5760edfd64edff672b69f30389d44eee7b9f7cc71e737a23:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyY2Q0ZGI0OGEzNTBlOGYwYjQ3OTQ0YzQ2ZTNmZmRiYmExMzJkMjI5MGE5MWQ3MDEyYjU2ZWI0NmM4YWI0ZjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUyOTQ3NGUxNjBjMWQzYTNkOGU5MjdhMTIzYzhhNTQ2NDI4YTVjYWU2ZTM4NjBjMmNlYmI3N2U5NDA3MGQ0MGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjczNjM3OThmMGQ1NzBmN2JjNmE4MTUyYjRiOTI0NTIyMTU4NGYxZGUwMzhjOTc1MmNiNWU2MTFlOWQ0MzlmMmEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_47af9f93767146d18b34b9301e6d0a60",
+      "statement": "manual_group 是 #[ignore] 手动测试，通过 BLACKLIVE_TEMPLATE/BLACKLIVE_MIDI/BLACKLIVE_OUT 指定真实模板、MIDI 和输出。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L330-L337",
+          "version": "repo-lines-v1:sha256:f534b745fb344f24ca86b06af1822d3db13110b937a9794f9050c43b4f92726c:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYTExZjZiNzcwMTJmOWZlNTlhM2IzYzAwMzQ1Y2JjMzBjM2ZkYTA0OTFmY2VhZWJkNTQ0OTQzMjc5ODdlNDhkZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDdjMDZjNTYxZDVjMzI3MzQzNjg1MjY4YTQ2YjMzOTFmMzk5OGVlZTg5MGQyYmU1MWYwZDIxY2M0YTUzYWU2ZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjdmZjgwMGFkYjVjYzUxOWFlYmE3NGQxNjUxNmU4Y2M0ODhiY2RhMTgzNjcwYzQ4MTY1ZjE2ZDZmMzUxNGJhOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDAxZjJlYzE3NTkzYzEwNTRlYjQ2MzY3ZDg0NTNlZjI0YTE3M2NlOTZiNzExN2Q5MWY5YTY4ZDQ0ZmVmOGIwMSJ9"
+        },
+        {
+          "resource": "repo://tests/manual_group.rs#L5-L10",
+          "version": "repo-lines-v1:sha256:f0e894f54e6964fefa62dce14ab96820bfe1a7cc81f40b91055acd507db7d464:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDJjZDRkYjQ4YTM1MGU4ZjBiNDc5NDRjNDZlM2ZmZGJiYTEzMmQyMjkwYTkxZDcwMTJiNTZlYjQ2YzhhYjRmNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZGJlYjg2MmE0ODU5OGU0ZDUwYWFlZjU0YWVhMmIzNDA3ZThkMjcxZDY3YmNiODdhNTRlYzI0ZjZiZTE4MTM5ZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTcxZDc4OTA4MTE3YzI5NjZhODk4OTNiYTlhN2FlNmZhZjBiYjNjOWY5OWIwNThjYThhNGE5NjFkNjE5ZjljYyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjY3ODliYjNiYTg5ZWY3M2MxYWY2Mzg5NTY2ODNkYjcyNzZmMTBjNmIyZGM0MjVmNDRhNTE1NTY2M2U5YTllOCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_b6dfc1d950804af0aaa9de23e788261c",
+      "statement": "输出写盘前会先校验 LiveSet，再序列化 XML、重新解析并再次校验，最后以临时文件加重命名写出。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/pipeline.rs#L241-L248",
+          "version": "repo-lines-v1:sha256:01f48caa2ee942605e5389e2830614808f54fe6cf968a12582516596c352cb9f:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjY1ZDBhMTIzNTc5NjE4ODgwNWQ1NWJiZjNhZjAyODQwZmJhZjJkNzk5MDczYmZjNTUzMTAxZTY4NjFjM2VmZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNTFmYTBjNTFhZjQ5M2I2NjY5ZTc5MzJjNGI5ZWZiMDlmMWQzZWY5YjZiY2FhNDgwNGRkMzQ1ZmNkNjA4ZDM1MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzViYjUxYTdlMjMzODEwYjNmMTg4YTE5MzBmYmIyODBkMjYzODg2NzRhNmQxNGQyZjYwMzAwNGM0YTQxNWEwOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODU2YWUyZmJjZGE1OTUzYmY3NzgyMjFlMjQ4NTU4NDhkNmFhNmJiZTcwOTBkOWM2ZDRjOGQ4NTZjMzZhY2U0MiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_5341a26e76e14450be844ccaf906492e",
+      "statement": "内置模板、satpiano 单通道输出、15 通道 EnchantedLove 输出和 RPN 折算输出都已在 Live 12.3.8 实际打开验证。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L319-L320",
+          "version": "repo-lines-v1:sha256:6c8c8e9fabd3009872d46f4223ef04ca0a9f23d30e15aadc7b609d95c21b9408:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzhkYmE0ZWQ2ZmQxNDFlNTQ5OTYyNzg5YWVlMjYxMGMzOGY0MzVhZjEwZGU1NDdjMmQwZjYyZGEyN2UwOWZkYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDZhOThiOGVkMjU3M2ExNTc3OWQ1OGRjNmNjMDg1MDA2MjgwZTg2ZTg2NDAxZTllYzg1NTAzNDdlNmI0ODA5MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzM3ZjE2MDkyYzVkZDVjNDM2OTZiY2Q0N2FmNTQ5ZDQwNTJkOTY4OWQ5YmNjMTA3MjNmZGQwMjk2MmY1ZDVjOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGJhMDc0MjI4ZjE1YThiMmM4N2FiNDVjNjk4YmViZjI3ZjY0Y2EwMjliMTBjZGUzMTIxM2YyODg4YzQzZmUxNCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_43219a2e31ab4f13a4332b10530ce25b",
+      "statement": "当前自动测试为 12 个单元测试 + 3 个内置模板集成测试，另有 1 个手动 Group 集成测试。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L328-L328",
+          "version": "repo-lines-v1:sha256:666a01fa80cd8f52d2181001b715fb40000905c9ad7279233fde0d48865a6225:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjY2YTAxZmE4MGNkOGY1MmQyMTgxMDAxYjcxNWZiNDAwMDA5MDVjOWFkNzI3OTIzM2ZkZTBkNDg4NjVhNjIyNSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjY2YTAxZmE4MGNkOGY1MmQyMTgxMDAxYjcxNWZiNDAwMDA5MDVjOWFkNzI3OTIzM2ZkZTBkNDg4NjVhNjIyNSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzFhNjgwNjQ3ZGZiMjRhYjdhMmVhZDNjYzc1ZDEwMDQzYWM4NDkyZjFiZjI2YzM2Mjg3N2RlYjkxYTc5Mzg0NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzhjMzkzNGNkYWQ2YjU4ODUyMzE5MDhiYjViYWVlOTYzNjMxNDEwNzE3ZWRiMjk0MGE0Mzg3OGJkZjZjMDZiMyJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}

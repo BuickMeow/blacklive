@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:caf4e54052cce02d2f019d9421189b7c1b2c1074ad4e2c6deedf479d535a48fa",
+  "claims": [
+    {
+      "id": "claim_aeee9862cff24a35ae3843318f9c959e",
+      "statement": "MIDI 解析只接受 PPQ/Metrical 时间基准和 Format 0/1；SMPTE、Format 2 和 PPQ=0 会直接报错。",
+      "evidence": [
+        {
+          "resource": "repo://src/midi/parse.rs#L17-L37",
+          "version": "repo-lines-v1:sha256:ae03b1d2f2e4e7e2554bd5631aab40702a3253014f281fb614edc271d3f2480d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyYzJiNTIyM2JhZjgwNWFjYTIzOTMzNzdiYTVlMGM5ZGRmNDUzZmE4NzQzOTA4YWY3MjkwZmQ5NmIwM2EzYzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkOWUxMjU0NjQyNTU3NmQzZGVhZThjOWI5ZGJmMTI4ZDVkNmRkYWY1ZDdmZTg1NzkzNDkyN2RlZmZhM2I5ZGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc1NmMzMTYzOWU1NTI5OTMzMmVkNmNhOTFiZTY3NGY5ZDQ5ODcxNzhlMTYyOWY1ZDNkZGYzYjljMDRjYjI3YjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg1Njk4OThhYjhlMjE0MjEzNzk1NDZiZGJiMjZkYWZhOTVhNjliNDUzNGRjNTc1MWViMjAxODI1YzYxNWQxNmUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d646b39cb9134ad4b42d144dbbab8a37",
+      "statement": "音符按 (track, channel, key) 的 LIFO 栈配对；零时长按 1 tick 处理，未匹配 Note Off 和未终止 Note On 会被忽略并计数。",
+      "evidence": [
+        {
+          "resource": "repo://src/midi/parse.rs#L273-L380",
+          "version": "repo-lines-v1:sha256:cccac6387c7b1a0e6266d659d6a8bfe104b847891802aaf568525473a6a05337:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmN2Q2MTY1MmFhYWNmZjFlNjAxOTVkOTE2YThiYWI3OGEwYmI1ZTQwYzU3NWZkYzkwOGI0ZjUwOTc3YjBmMzc0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmMmQ4MjhhMDM3YWMxYzgxNTM1YjFkNTUwMDgzMjMyM2JmYmI4NjZhM2EzZjg3ZTdhNjhjMTNhMmJhZTU2ZmZmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2OTRkODJiYTg5MjY5M2Q2ZWI0ZWUxMzFhMjA0MjI3Nzk2ZDNjOGExYTRmNzM5ZGY0MTc5ZTBhZWIwN2I0ODljIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_6dc1ec11b4ec45eb854b230929465c29",
+      "statement": "解析器用 CC101/100 选择 RPN、CC6/38 写入 Data Entry；当 RPN 为 0,0 时生成 PitchBendRangeEvent，并按 channel 保存时间线。",
+      "evidence": [
+        {
+          "resource": "repo://src/midi/parse.rs#L106-L149",
+          "version": "repo-lines-v1:sha256:37fca6a0c08347ff09f7ded942b3438bcfece82b5bda3d6914a87731de2eb6b5:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4ZjE4NDJjMjYxN2JhMTRmNTQwMjMwMDQ3ZDczYzE1YTUxOTQwMWJkNTk2NzMwNTg0NTdjMWJmOTUyYjhjOTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU3YTVmZmEzZTA5NWRmMDViNmIzMzMzODcxYWJhMWMxYjNlMjVhYjNkYmYxZDQ5MmYxNTRjMmNjMmIxMjJmNTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYxZDQxNjM4NTg3YzE2YmI4NDMyNTM2YjJjOTM5NjY0ZjM4NzhmNjY3OWE5NTY4MTk2MjEyYmNiOTUxNTdmYTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhZjU1ODYwMzk1ZGNhYjc0MTdmMDE0OTcwZDBjYmEzY2U0MDQwZWQ2NmZjYjQ1MTVlMDczOGQwN2Q3NzNkZmIifQ"
+        },
+        {
+          "resource": "repo://src/midi/parse.rs#L201-L231",
+          "version": "repo-lines-v1:sha256:c3c7af1e7a8cd4abb08f280c0436072e75ffc53a7e2771cdfa343f86db81c6b4:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwZGQzM2NlNTY2YmQ0ZDBhMzY3NjFjMTgzYTZjMTllNjg5OTAyNTk2ZTg3ODY5MWQ3YjBkMDRmM2ZjZDI0MGQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk5OWJkZWZlZWFjYTYzNDBlMDI5MGRjODZlODg5Yzg5ZDVlMTg5YWE1YmE0NGI1ODViM2I3MDczNGY0YTYyZDgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE4YTdhMjMyNWZmZTcwYzkzMDRmMGYxNzIxZWY0N2YyMjQ5MjdkMWE0MGI1NWZmMjc2Y2QxYzI5OTMzN2M3NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6666896079a84646b19edcdffbd0030d",
+      "statement": "Tempo 事件按 tick/order 排序，同一 tick 后值覆盖前值；首个 Tempo 不在 tick 0 时补 120 BPM。",
+      "evidence": [
+        {
+          "resource": "repo://src/midi/parse.rs#L233-L253",
+          "version": "repo-lines-v1:sha256:3bcb6afdd8bee9dd97535061607cf4357366beb506a2ccd409c8306e3101ee10:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNlNjI3MGZlZjE0ZTVhNTUzYjg2ZjhhYTRkM2Q2ZDFjMzFlMDY2NjE4Y2NmMTEzOWJjMjFmMzQ1OTI0ZmJiY2MiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE1ZWI3YTNhOTczMjQxZTlhNDMxNDc5MmE1MDlmOGMyZDUyODVlYzEzMjVmZDYxNjEzOWQwMzViYTA3MTJjYTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzNzA5ZGE4NDVlZGZkN2Y2N2M3NThhNTllODg1N2RiYjAxNTQwYmY3ODk0YjI2NWNiZWZjMzA3OWEyOGU2ZGEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_cd9a63d69cb643a789dcf19e11367aeb",
+      "statement": "固定 Pitch Bend 范围默认取 MIDI 中最大 RPN 范围，至少 2 半音，超过 48 时夹到 48 并给出警告。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/pipeline.rs#L88-L114",
+          "version": "repo-lines-v1:sha256:177f3faa9f162558794c453208fb7cd1be5da26834c3e52cba2d6b76e9dd86a9:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIzYjIyYzAyNTM3YjRiMmVmOGRjNzdkMmRiZTg3MWE5MmIzZGE4ZGUyODQzYTU5ZmQxNjc0ZDUyNGRkY2RjOTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNlNWM4MzFlYmZhNmQ2NzJlMTg3ZTZjN2VlMTBmMzdmYjNmNThkNTZmYjgwNmNjZTA0NWUyZTYzYWJhY2Q3ODUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ3MjI4Y2Q0NDliZjAwOGM1NmY1ZTRkYzQ2OTcwNTdhODI2ZjhmMmJkZDY2ZjkwNjdiODE3MTNkZmM2OWQ0ZmMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_321a312095914fdd90ebfcecebbcf016",
+      "statement": "pitch_bend_points 按当前 RPN 范围把原始 PB 值折算到固定范围：signed × current_range / fixed_range，并夹到 -8192..8191。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/clip.rs#L269-L331",
+          "version": "repo-lines-v1:sha256:222f632b101ef91c2a3069230ef1ae6c62ff0d18e57583e21ea2153514cd9b22:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyZjdjYTJjOTRmODA4ZTg1MTQ3YTU1YzcwNTMwOThkYzA4ODlkODIxNWFhMGEwNzYxYjZlMmE0ZTA5YWJmZTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU0MzQ4ZDA3NDYyYWI4MjM2ZjRkOGVlYzEyMWJjY2M5ZDJhNGIwMTU4OGE4NDcyOTcwOTg1OWYwYjAzYmU3OTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYwYTM0NTE3MWNmNjljMThjYWExOWQ4YzNiNjQyNjUxYzdjZTA5MjhmNTA5OWI1OWMzNzQyOGFkOGY3ZjI3NzMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c97e24e73a1d4d10aef136803009f5e9",
+      "statement": "克隆乐器时，set_pitch_bend_range 会大小写不敏感地写入 PitchBendRange / PitchbendRange 参数。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/devices.rs#L74-L93",
+          "version": "repo-lines-v1:sha256:17cc3d1f9ba9c07ad7c4378c66fbc258fe20bfadc28e2f3bd3c4d557e579d4b9:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ3OGRlMGNjNTFlMjJkZDJhMTA5YzhjZGE0MTlkOWMyZWNlYzM1NWRhMWRmNzljNGQ2ZGM1YzBhMTYxMzYzZWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ2YmMyZGY5MTk0YTUxYWIzYjNmYTc1NDM2NzcxODFiYWI2NjJjNTJmNjZiOTRhZTVhNWU3YmIwZTcwY2EzODEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiMTE2MDIyNDczYTQzZDk5MTM4Zjc3MDcwZjQ3NDk4ZmI2YjhhYmQ3MjlkMWUzODY5MjIzNWFlMzg3N2QxNTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_33b5b0a557e74e1897258095e4154832",
+      "statement": "转换默认写入 Pitch Bend，但不写 CC；pitch_bend_range 默认为 None，即按 MIDI RPN 自动选择固定范围。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/options.rs#L30-L60",
+          "version": "repo-lines-v1:sha256:67da9cb61579e118ec714aa156d801aae2a668ca9b9e6076be9ea3771145bdfc:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU1NGJhYzY5NjczZWQzOTI3NGZjMDhkZWM4MDAwNGMyMzRlNmRhZGEzZDI0Y2M3MmQwYWUzYTRiYThiYzRmNjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUyYjViYWUzODI2OTZhNTIzM2I1NmJlZGYwNjMxYTk0NDVlYmM2MmQyZDI1ZWIyNTBiZDE5YTQ1ZDU3ZjcyNDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5ZTUwMTI5M2JhYjFkMGUyMDk4MzNiODY5ZjNhOTU5NzdiNGVjZTY1M2YzNDdjODhlMjE1NGNhOTc5NTdjOTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI0YTM2NWE5MGVjMTFlOTA0MzI3NTJjZjkzNzZlYzVlZDM2YjgwYmE1ZThlNjg1NGZjZjk4OTcwZDMwNDQ0NjkifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}

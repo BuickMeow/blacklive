@@ -7,6 +7,7 @@
 - 输出：按 MIDI 通道分 Group 的 Live 工程
 - GUI：egui / eframe **0.37**
 - 目标规模：纯钢琴、无 CC 黑乐谱；已实测 68 万音符、15 个通道组
+- 仓库内文档：`openwiki/quickstart.md`（OpenWiki 生成）
 
 > 已用真实 Live 12.3 工程模板与真实 MIDI 跑通：Group 克隆、子轨克隆、全局 ID 重映射、Pitch Bend Clip 自动化、Tempo 自动化、空轨保留均通过 XML/gzip 自检。尚未在 Live 里实际点开试听；最后一步需要你打开输出验证音色、力度和 Group 效果。
 

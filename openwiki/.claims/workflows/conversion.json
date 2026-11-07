@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:f733044e3733300d50bda9d62a2b4a19b3d747aee79fc42d983920e72cfcee17",
+  "claims": [
+    {
+      "id": "claim_a37cc789fdb241e99ffca3b2af7dc9ad",
+      "statement": "ConvertOptions 默认开启按源轨拆分、保留空轨、写 Pitch Bend、关闭乐器内部效果；默认不写 CC、不包含鼓通道、不移调/不截短。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/options.rs#L3-L60",
+          "version": "repo-lines-v1:sha256:17dae6d14c3a67b8953c6cc9c6ff1d2648e3020426ebd33c4d4e30052576a35e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgzNGVhMzgwNTJkOGYzMTMwZmMwOWZiNmZhN2U2YjE2NDdmZjk3M2FlNGEwOTY2NTZkMDBkMmQ4NzUyMDRiYmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUyYjViYWUzODI2OTZhNTIzM2I1NmJlZGYwNjMxYTk0NDVlYmM2MmQyZDI1ZWIyNTBiZDE5YTQ1ZDU3ZjcyNDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFiZGNhZWMyMzBhZTJlODhhNGM5ZmI2NTFmZmZiYjI5ZGU0MjVhNWRkZTE3YWMzZTM0NTZiYWZlMjJiY2FhMjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI0YTM2NWE5MGVjMTFlOTA0MzI3NTJjZjkzNzZlYzVlZDM2YjgwYmE1ZThlNjg1NGZjZjk4OTcwZDMwNDQ0NjkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_1264368145be4c859a297229178c1125",
+      "statement": "通道过滤默认排除 0-based index 9 的 GM 鼓通道；移调后超出 0–127 的音符丢弃，短音符可按 min_note_beats 拉长，trim_same_pitch 可截短同音高重叠。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/filter.rs#L12-L115",
+          "version": "repo-lines-v1:sha256:953e7ad2d598a121989d9067e1c3dc0389c8b77cbb985332295e8872055b06be:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMzMyNmY1Njc1YWNhYzU3MDg0Y2UwYTFjMzFlN2RjYjVkNzM2ZTMwOTY1MGUxOTI1ZjczZjEzZjU0MmFlYjJjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwZTg4OGJjNTA1NjkzOTJiYmJlNTZiNDExMTJkNzljODZjYzg0ZDcwNmRmNWM1MjI5OGQ4ZGI2Yjk1OWE5ODc5IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5MTAxNjZjMzM2OGIzMGRkMzQ2MDg5NWM1N2UwMzljMmYxNDkxN2UyMTQwZjhkZjlkYmM0ODA4ZTY3OWNmMTg0In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_88d609b6359049c59ca9ad385dc3cdc4",
+      "statement": "BPM 优先级为 bpm_override > MIDI 初始 BPM > 模板 BPM > 120；固定 BPM 覆盖时不会写 MIDI 的变速点。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/pipeline.rs#L129-L155",
+          "version": "repo-lines-v1:sha256:fe6b628c399630c5b3381263ea73398f851d6743f634bd6e173e7a925f5f5ecd:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg5MTU3MTliM2NhYzQyNzBkODY4MzE0ZjBjM2YxNTZjMTJhNDc0ZjE3M2JlNmU0NzY4YTM2MzhjZjIyNWMzNGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRiZDU0ZDkyY2NlZmE2OWE4NTQyN2M5ZGRkMzU2MTYxMzNmYjgwNTIyYWRiMzRlN2RhODBmZjZkMGUwYjY2NjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIyZmRiOGE5ZWY2ZTg5MjQwZmQyYjRiMDA5NTkxNWNjY2I0MWMwNjc1ZDdlMzllZGZiZDFhNGM4M2ZiNmVkYzEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_511987e209764f9e84cf4522f81195be",
+      "statement": "split_source_tracks 开启时按源轨拆子轨，关闭时合并到 source_track 0；keep_empty_tracks 会为有 MIDI 事件但无音符的源轨补空 ChildPlan。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/grouping.rs#L7-L129",
+          "version": "repo-lines-v1:sha256:c41baa48c5c27964fa45144cd6f5b47228bc8a1043cd8c0c51e597f76c79713d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJjYzViNTRjNzA4MDRmZjAxZDJhMTNmOWJiOGU0OGI1MmJiOTc5OWNhOGVlMjY2MDM4Yzg2ZDVhNDc2MjEwODVjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1MjcxYjU3ZjYxNmUxMjE0YmRhNjAwMTY4OWU3MmViNjFlYjNmMTU5YjYxY2Y5NGVlZmQ4NWE3ZDcxOGFhZmUzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxYzFmNjE2Y2Y0NGVlMDg1YmY1YWU1OTNkODRlYmFmOGE2MzJjMDhkMWI1YTFlNGUzNGQ0YzQ5MjQwMDg4N2I2In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_d82736ab5e184b57ae7c7cbb726a90b3",
+      "statement": "Pitch Bend 默认写入且只写一条最长有音符子轨；CC 默认关闭；strip_instrument_effects 会关闭克隆乐器内部的 Reverb/Delay/Chorus/Echo。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/devices.rs#L41-L93",
+          "version": "repo-lines-v1:sha256:f70d9d92a8328800dc3463188e5c1ff12b150e8f51ce8215a82a244d90e21cfa:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk3NjExZjQyZjA1NzA5MTgzYzA3YmIyODk5ZTk5ODIwZjEwYWZhYWFkZjA4MDhiMThkZDkxYjE4NDg1YmJjNjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI2NTY5NTVhN2ZkNDRhOGQxMDVlM2E1ZmU0NzM4YTFiMDQzY2MzZGQ3YjY3NTg2MjZhMWYyM2FkM2E3N2FjNGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiMTE2MDIyNDczYTQzZDk5MTM4Zjc3MDcwZjQ3NDk4ZmI2YjhhYmQ3MjlkMWUzODY5MjIzNWFlMzg3N2QxNTgifQ"
+        },
+        {
+          "resource": "repo://src/als/inject/clone.rs#L103-L143",
+          "version": "repo-lines-v1:sha256:958a0a8961f41b17d4245ebc4fd59425fc710e1610bdf6e48d22cefb93bb3812:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdkYjI1ZmE0NjQ3ZWYwYzk4YjVmMDYxY2MxNTRhOTFhZmJkNjkxNGNmOGI2MGM0M2ZhMDU2OTNjYjExYWE3NzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJmYTA3N2FhMTIyMTgyYzFlNzBmN2EyMjRiNGIyNjNkMjc4ZDQzODRmMjI5MGE1MmVhNDg5OTQxYTk4MmI2YzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA3MjkyYjBhMWY0NDJjOTBjZWQyNGUyOTgzYzhkYTlhNDAzNzNhM2YzNDBhZGJkZGYxZGZhN2VlMjI3YjU0YTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI1MDUzZmEzYzhjNjYxYTVjMDhiZTFiMDliZjYyNmM2MGYxY2M4NmU5MjEwZGEyYjg2MDIxMzE0YmU4MmIyZTUifQ"
+        },
+        {
+          "resource": "repo://src/convert/options.rs#L30-L60",
+          "version": "repo-lines-v1:sha256:67da9cb61579e118ec714aa156d801aae2a668ca9b9e6076be9ea3771145bdfc:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU1NGJhYzY5NjczZWQzOTI3NGZjMDhkZWM4MDAwNGMyMzRlNmRhZGEzZDI0Y2M3MmQwYWUzYTRiYThiYzRmNjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUyYjViYWUzODI2OTZhNTIzM2I1NmJlZGYwNjMxYTk0NDVlYmM2MmQyZDI1ZWIyNTBiZDE5YTQ1ZDU3ZjcyNDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5ZTUwMTI5M2JhYjFkMGUyMDk4MzNiODY5ZjNhOTU5NzdiNGVjZTY1M2YzNDdjODhlMjE1NGNhOTc5NTdjOTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI0YTM2NWE5MGVjMTFlOTA0MzI3NTJjZjkzNzZlYzVlZDM2YjgwYmE1ZThlNjg1NGZjZjk4OTcwZDMwNDQ0NjkifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:03d670e25394d6c01d2091394ccab32bac8af89ea994ca67563ae5e5e528f614",
+  "claims": [
+    {
+      "id": "claim_4726123cef3a4490b60e176e885ff4b0",
+      "statement": "转换入口先检查输出不会覆盖 MIDI/模板，再加载模板（文件或内置）、解析 XML、枚举 Clip 并选择原型 Clip。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/pipeline.rs#L271-L293",
+          "version": "repo-lines-v1:sha256:fcc256b5ac10e4ba043023d4e8c5e7b656a3f2de508f58f9003ec8ba9e3bc95f:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE5YTFmYTQyNDBiNTZkMjI0MzJlNzM0ZjU3NzdiMjI3NGVlYjRiODM0NjM4N2I5NTk3NGIwYzdiY2IwOWExZmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYwNjNjNGQxYWY4Y2Q4OWJiMGJkZDc2NTdmZmNiZjY4MDZhNjEwZDc5ZDZjOGQ0YzMwN2MyNDFkZjM5MDA1MjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUyZjg1ZWU4NTFkMGRhNTU3NWY5ODQ0Y2QzNTQ3YjU1NzgyNDU2NGRhN2VhNjdlMTcyYjQ3OTZlMjM0YzAwNzcifQ"
+        },
+        {
+          "resource": "repo://src/convert/pipeline.rs#L58-L74",
+          "version": "repo-lines-v1:sha256:3b3c6b8dfe98139acd10215718983d5f0026d95285cc528500f2e87bfeaaf484:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiZTdiMWIzZjZlOWYxOWFiZjllZDQzYjg3YTdmYzI4NWU5ZDIyMjMzYjJjNWE3MzgyN2M3YTk5YmU5YTI2NmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5MzQwYjM1MjYxNTg1ZmI1ZGQ4YmRjODExYjYzZTZmYmIyNTQwYjIyYWJkNWQ2MjI1MDA4Mjg1YmE1NTQwN2EiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUxNTMwZDE2NjRiMDMwNjc4NDEyNmY1ZTgyMjU3NWU0NWUzYmQyZjRjZTg4NGNiZjBlMDFkZDUyZTM5ZTllNTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI4NWE4NzFkYmYwZDdiOWExYWJlN2EwNThjMGFiNWVkY2M0YjdlODJlYmZjMWM5MmZhY2Q4NzdkYjAyMzM5MTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c93e7ca1a935408ea807745ee3009b89",
+      "statement": "转换在注入前执行音符过滤，并按 bpm_override > MIDI 初始 BPM > 模板 BPM > 120 的优先级确定 BPM。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/pipeline.rs#L139-L155",
+          "version": "repo-lines-v1:sha256:ec34d8a4e7dee374473d05679a88f4056720cba8efc6d9ad42160fd189b21a6b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ5ZDQzNzQ3NWQwMGYyMWU1MmI2NjYwOTZkZjlmOGQ2NWRlNjMwMmI2NDUyY2JjN2Y5YmZiMmFjNzg3YmUxM2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRiZDU0ZDkyY2NlZmE2OWE4NTQyN2M5ZGRkMzU2MTYxMzNmYjgwNTIyYWRiMzRlN2RhODBmZjZkMGUwYjY2NjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIyZmRiOGE5ZWY2ZTg5MjQwZmQyYjRiMDA5NTkxNWNjY2I0MWMwNjc1ZDdlMzllZGZiZDFhNGM4M2ZiNmVkYzEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8520513c126943459b8102434e785be8",
+      "statement": "Tempo Map 会按 Arrangement 起点偏移；只有多于一个有效点时才生成 Tempo 自动化。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/pipeline.rs#L157-L193",
+          "version": "repo-lines-v1:sha256:faae92cc0dccb03fbf7e870e0a6fd7141b336239f79ee586dd1784fc1b44115c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzMWYwZTEyMzA4ZmU3N2QxZmMyMjcxNjlmYjI3ODVlZDhmMDJmM2IxMWNiNWI1M2ViZmMyMDkwMzI2MzJiOTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkOWUxMjU0NjQyNTU3NmQzZGVhZThjOWI5ZGJmMTI4ZDVkNmRkYWY1ZDdmZTg1NzkzNDkyN2RlZmZhM2I5ZGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE1ZWI3YTNhOTczMjQxZTlhNDMxNDc5MmE1MDlmOGMyZDUyODVlYzEzMjVmZDYxNjEzOWQwMzViYTA3MTJjYTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQxMGMyNzcwMzk5ZTM5Y2VlMmU3ZTk4MDQyOWZjZTM0MjY3MTY4YjhhODdlMDI0MWJkYzkxMWRhN2YyZmE3YWUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_dfe4a36bf8954e39bad2378a1a85a3c1",
+      "statement": "build_groups 按 channel 分组，并可选按 source_track 拆分；为每个子轨生成名称、Clip 名、音符和包含 tail 的 Clip 长度。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/grouping.rs#L7-L82",
+          "version": "repo-lines-v1:sha256:711eaac0f0f5785d7f555031044d6648b434c8830bc0aa7e73b2ceb9ae28cf6c:eyJzZWxlY3RlZExpbmVDb3VudCI6NzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNjNWI1NGM3MDgwNGZmMDFkMmExM2Y5YmI4ZTQ4YjUyYmI5Nzk5Y2E4ZWUyNjYwMzhjODZkNWE0NzYyMTA4NWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUyNzFiNTdmNjE2ZTEyMTRiZGE2MDAxNjg5ZTcyZWI2MWViM2YxNTliNjFjZjk0ZWVmZDg1YTdkNzE4YWFmZTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVmNzE3NGNkNmVmMmM1Y2E4YTdmY2RjOGYxZDJjMzFmZGI2MjdjOWVjNjU2YzAyNDM0YWIxNGM2Zjk0NjU3ODEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_98f7f0de56724a30a5392825fc867709",
+      "statement": "当 keep_empty_tracks 与 split_source_tracks 同时开启时，build_groups 会为有 MIDI 事件但无音符的源轨补空 ChildPlan。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/grouping.rs#L84-L129",
+          "version": "repo-lines-v1:sha256:48e5565652c803e6a713bfd422336b14423aba32f3d8ee58f3985d803ebecb8c:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc4N2ZjODJiODY5OGE3MmU4NDUwNjkxNmRiYzM0YjJkZDgxNjQ0ZjYxNDQ4NmJiMWU4NjdlNjJhNDM0MDQzODkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImEyY2MwZDQ0ZGRlMzkxMDE4YTQ1OWMwNmIwOTBlZWVjOGRmNTA0MTg4Mjk3MzIwMmQwYTc2NWZjOTM1NjRjYTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjMWY2MTZjZjQ0ZWUwODViZjVhZTU5M2Q4NGViYWY4YTYzMmMwOGQxYjVhMWU0ZTM0ZDRjNDkyNDAwODg3YjYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_fb09cf361ea94066a42027dad5eac2f0",
+      "statement": "注入完成后，转换会校验 LiveSet、序列化 XML、重新解析并再次校验，最后以临时文件加重命名的方式写出 gzip .als。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/pipeline.rs#L220-L248",
+          "version": "repo-lines-v1:sha256:195421cd273f7f43b7fe49b36f70a0c59147f9ddd06a7a6d218141108de77c4b:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2YTJjNjg2OTI3YzkxM2ZlZGY2YzNlYWM3NTJkZDc3N2NjYmQ2YjU2ZWQ4NzA3YmZiZTA2OTZkNTNhYjEwMGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxZmEwYzUxYWY0OTNiNjY2OWU3OTMyYzRiOWVmYjA5ZjFkM2VmOWI2YmNhYTQ4MDRkZDM0NWZjZDYwOGQzNTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYwYmU2MjA4YzU3MDUzYjdjMGE0ZmU2ZmExMTQ2ODFlMTQxZWFlYWE4Yzk0MGI4NTRhY2ZhMWQ5OTJlNjBlNTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg1NmFlMmZiY2RhNTk1M2JmNzc4MjIxZTI0ODU1ODQ4ZDZhYTZiYmU3MDkwZDljNmQ0YzhkODU2YzM2YWNlNDIifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}

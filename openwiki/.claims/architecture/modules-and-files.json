@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:094380072a1c461452b611d55fb7e0d4d374e3e7be4c0bc77b0288d18b18711a",
+  "claims": [
+    {
+      "id": "claim_39debdc4b5924ae2864548110ea472dd",
+      "statement": "lib.rs 是公共 API 门面，重导出 als/convert/midi 的公共类型，并定义内置模板常量与 format_num。",
+      "evidence": [
+        {
+          "resource": "repo://src/lib.rs#L10-L34",
+          "version": "repo-lines-v1:sha256:231e166e3c5deae74e1c59a758b4ade1ab592164834daaa051f14e1e1ba0b377:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5ODBhYzBmNzY2MGZiYWVhNmMxZGVjY2NiNjdkZTc4MjQ4ZDc5YzU5MmJkYWZlNzYxMDAxMzFlYTU1OWJjMWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU1OTZhZjcwZWNjYTM0YjhhY2M5OGM3ZmRkN2M5NTE5OTA0M2QyNWE4YjA5ZWE1NDA5MTNlNzA2NWQzYzc2YTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNlYzRiNWY5MThhZjYyYzQ0MDViMmE2ZjcxNDc0NzI4ODI1ODlmNGVkZmRjMThkN2FiOGI1ZjY2MDdhM2VmYWUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_78561903592049efbde96b8b8aba7017",
+      "statement": "midi 模块只公开 parse 函数与类型，内部 RawNoteEvent/PendingNote/RawNoteKind 为 pub(crate)。",
+      "evidence": [
+        {
+          "resource": "repo://src/midi/mod.rs#L1-L9",
+          "version": "repo-lines-v1:sha256:f13f6266ff40205508fe3147a92b58e9b60c909ca9e75205616af1e918917b6f:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDQxNzUxYzEwYWE4MmM1NGEwNTljZTA5MjkzMjc2ZGNlNWI1ZWVjOGEwZjNkNjQwZDI1OTU2MjIzODRiMDJiYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjIyMjcyZTM1OTQwMDllZjVmMWFjNWE1YWUwOGZlN2E1MzQ1ZjE1M2NkYzJlYzBhMzMyYmMwZGZkOWQ0NjZjMCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_28981f08f5284af2a171a5098c3a87db",
+      "statement": "convert 模块公开 ConvertOptions、结果类型和 pipeline 函数，同时把 filter/grouping 保持为 crate 内部。",
+      "evidence": [
+        {
+          "resource": "repo://src/convert/mod.rs#L1-L19",
+          "version": "repo-lines-v1:sha256:a204dc6dfdef1d27c7e68878196225d85c08cbb55a8afa90b92a51e154ae8795:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5YjgwN2YzZWIyMjFiZGU5MDExNDQyNGM2YmVlODAxZmY2MmMzN2Q1MjE4Y2ViYjNmNzU3ZTU1MmI4ZDc0N2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhhMjliZDRiNmNlNTA3M2JkNmNmNTFjZGEzY2Q4ODY0YTM4ZjZiZWJjYmJkZmVkMThiYWM2Y2E1NDdkZmRhNTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_264dd92bc00f4f97a0cc9e3bdb71be7f",
+      "statement": "als 模块公开 inspect/io API，内部通过 pub(crate) 重导出 clip/devices/inject/pointee/tempo/validate/xml。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/mod.rs#L193-L217",
+          "version": "repo-lines-v1:sha256:4b1762503fb70011eee45cbddca5375a1d655ed44c4fdb6c289d8d006cc7dba4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmZGM3ZWRlMDYxZTFhNGU4NjgwYmIyZDVhZjc1Y2NhNGI3MzdlNGYwYTRhNjZkYTdhNjc2YjM3YWE5MDM5NjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRjNTJjMWI4OWQ5YWI1MDk4YzA5NTU3NWNjM2NjNWRhZDA5YjViMjZkMTdmYmUwYWM1MmRiYTcwZjc2MzdjOGEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1YWEyOTZmOGIyOGYyMTJiMWI0MzJjZDhkYmVhZDBlY2RhMGUyMGUzYjA0YWJjMTk5MTAzN2Y3NzNmNGEzZDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_cd8843a0152d4e2ba4f1b09280557cde",
+      "statement": "GUI 入口拆成 main/app/files/options/stats/status/actions，App 状态集中在 app.rs。",
+      "evidence": [
+        {
+          "resource": "repo://src/bin/blacklive-gui/app.rs#L11-L36",
+          "version": "repo-lines-v1:sha256:75bbbb668a91398357886327f041702ec484c921d13fdbfb97f286465fffae3e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzNDJlNGU0MWIwZWYyMzE5YjBjN2E0MDk0NzBkYWE5NGJhYmY1MjMyYjEwNzEyNzg1ODdmMGE5ZmU2ZDdiODciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEyZTg5Y2JmYjg4NGU3ODFkY2U4MjkyZjc0YTUxMWJkMjcwNDA2YmNjMmMwMTRhNWU3ZTM4OTAzNTIxOWQzNmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdiZDI2YWFkZGZhM2QyMjEyZDU0YjQxY2ExYzE3YWJmMTMyNDBkZmMzZGFkY2E4YmFjMTM1NDAwYjdkZjY3NTgifQ"
+        },
+        {
+          "resource": "repo://src/bin/blacklive-gui/main.rs#L1-L9",
+          "version": "repo-lines-v1:sha256:8b7ed15821dcd4c354e019a02231c330fbc162be18176115ace650f234d4d793:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTI3OTBkYzdjOGY2ODYyOTdmNmYwZWIxNTQ5MmQ2ZGNhNDIyMmQ0OGFjYmRlYzI3YmIxOWUyMmVmOGI5MzA2OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDUzOTc0N2JlMDE3OGYwNGQ2MDhmOGM5MzlkMmI1ZmNmZjQ4MWZlMWIwY2QwM2M0OWQ1MDlmODM0MjI4OTIwMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMTgzYTUyNTBjMGI2NmVmODA0ZGZlY2ViOGIxZWNjNWMxNDU3ODkzNzk4ODI0Nzk2N2ViNmNlNGIyNGQ4YTE4NSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_691535f7bda04e8babcbfb5eb1b8a02c",
+      "statement": "Cargo.toml 设置 autobins=false，并显式把 blacklive 二进制指向 src/bin/blacklive-gui/main.rs。",
+      "evidence": [
+        {
+          "resource": "repo://Cargo.toml#L1-L20",
+          "version": "repo-lines-v1:sha256:1a28320e698a22228b172799946ee098fec374f0f23183df508f669b75c6d7a8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhhM2NkNWE4MWIzZjlhNjIxYWE0OTNkOTBjNDVmNDJhYjU3MWQ0ZTQyYjhhZTVhZmYzNTFjYjBhMDJkMDZkODIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwMTM3YWM5NzBhZWViMDdkNWQ3ZDY5NmMyMTNlMzI1MzFhYjU3NWI3MjIzMDRmMGY0NTljZWRlMjZiYzM0YzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQzNjQ4ODQyMWMxOTlhMTNmNTZmZWZlNDcyMjFjOGIyODJjY2FkMjY5NzE1YjY1NDhmMDFhYTU5OTZlMmE3NjUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}

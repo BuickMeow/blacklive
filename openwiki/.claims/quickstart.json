@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:4145644cfcaa127ba9402657764635c4e7dada24fee48a4c9190ab90d4e299d8",
+  "claims": [
+    {
+      "id": "claim_b828bf88ec2c4fa9a1ca7ea2433bca93",
+      "statement": "GUI 使用 cargo run --release --bin blacklive 启动，主流程是选择 MIDI 后导出 .als。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L120-L133",
+          "version": "repo-lines-v1:sha256:4a9b7abbfa09d77bbac57bd7d7868da6b4d661effa59f74a0079f6bbccbf76bb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBlNzE2OTVlNTI5MGM3NTIyZTFiNTIxNmFiZjEwZTNjNTk3ZDUwNWNiZDU3ZDZjMDgzODc5NjczMjY3ZTFjMzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFlMGViMzJmODlmOWI3NGI4YWE5NDI5ZDBmYjVmNjdmMDNjMWQ3OTYyMmZlYjQ5MzgxNTRlNDk4ZTY0YzA4MDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwZGI1YWFiOWYwNDBkMjNlNWRiMmQ0NTNlZWJkYWVhZTg5MWFlYmJiM2ZkYTVjM2M0ZDNmYzQyMzA0MmFiNjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMxZWNjZGJiYzk5YTI0ZDhkZDFiZjg3MWE3YmNjNjM2OWY4MDMzNjc3MDIxZWQ0NDkwZDJmMWJiNmJjZGY2MTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_22f5d682a80246f4b06446f175c847f8",
+      "statement": "默认使用内置 Ac Piano Upright 模板，输出默认放在 MIDI 同目录、同名 .als。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L130-L131",
+          "version": "repo-lines-v1:sha256:49682a6927c8d62c95cdc5885ae9a027eeb36e3c66b28a7e6ba022a304ba4a5b:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiN2VjMjYyMzRiOWY1Mjc4M2NkYmMwYTBhYjhiMDk2ZWFlMjViOWUxNTRiZTA3N2M3MDcyYzEzMjNhYTVlZTE2MiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNmU3Zjk1NTA2Y2Q2ZmU5YWM1YThkOTljZWE5M2Q3YTY0ODVkMzQ5NmU2MDkzNDZjMDRiMDE0NTc2OTQ3ZjM2ZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzhiM2E1YWU4NjhmODEwNDAyNDQ2OTVhMGIxNzg1YmZlZTE2NTcyMzY5ODZmODYyNWIwNGQ0NWUzMGU0OTU3NiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTczOGRkZmQwYWUxMmMyODFhZjZiMmI2Y2EzNjE4YWQ4OWY4MTBkZGY5MjZiZTM5ZDg5OGM2YTFlNTJhYTRmOCJ9"
+        },
+        {
+          "resource": "repo://src/bin/blacklive-gui/files.rs#L10-L22",
+          "version": "repo-lines-v1:sha256:d978aa542f0d2087f8b402e8f1c2c95133a47398c979928a64b6da2d2bc295de:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5Njk5ZTQ2Njg1MGI2NzdlODc4N2FjZWJjNDdmYjU1ZWMzNmZmNmNjOWYxM2MwYWRlMmM3MTc1YTJmNjE0NDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY2MDQ3ODU2MmMwY2RlZjNhNzczNDkzYjJhY2ZlYTI2N2M0NjA0MDQ1OGJiN2YwMGQ0MTQwNmIxOTMzZGU1ZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjMjIwZTdmMTQ5YTNkYmU5ZjhiOTRlMTAzM2NkNDRlYWM4OWMyNjc2YmMzZjMyMGVkZTUzNDJlMWNhNGI0MWIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ffee3cb7e5884fef8fb70b568006aad7",
+      "statement": "高级面板保留自定义模板、输出路径、分析模板/MIDI、通道/移调/BPM/起点等选项、源轨拆分和效果器开关。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L135-L143",
+          "version": "repo-lines-v1:sha256:b61f6b87a56604822a915f02705050245350fb09c7980233f144f49a432799e6:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNDMyNTUzMjUwZTVjYzRjMzliYmRhM2Y3ZjRmODA2MzIzYWRmZTNmM2JkYzY5NTcxZDIyMmVlYjg5ZDIzYzQ4OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMmRiMDgyOWI2MDgwYjJiMWU2NTdhNTJlMDM2ZTFkMTU1MGQ4MGU2OGJhYWU3NmQ3MzA1M2Y1MzYxYzNjYjlkZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTczOGRkZmQwYWUxMmMyODFhZjZiMmI2Y2EzNjE4YWQ4OWY4MTBkZGY5MjZiZTM5ZDg5OGM2YTFlNTJhYTRmOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDAxZjJlYzE3NTkzYzEwNTRlYjQ2MzY3ZDg0NTNlZjI0YTE3M2NlOTZiNzExN2Q5MWY5YTY4ZDQ0ZmVmOGIwMSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_1d5944b788964667ba2f0a9933352f0e",
+      "statement": "仓库的自动测试包括 12 个单元测试和 3 个内置模板集成测试，另有 1 个手动 Group 集成测试。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L328-L328",
+          "version": "repo-lines-v1:sha256:666a01fa80cd8f52d2181001b715fb40000905c9ad7279233fde0d48865a6225:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjY2YTAxZmE4MGNkOGY1MmQyMTgxMDAxYjcxNWZiNDAwMDA5MDVjOWFkNzI3OTIzM2ZkZTBkNDg4NjVhNjIyNSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjY2YTAxZmE4MGNkOGY1MmQyMTgxMDAxYjcxNWZiNDAwMDA5MDVjOWFkNzI3OTIzM2ZkZTBkNDg4NjVhNjIyNSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzFhNjgwNjQ3ZGZiMjRhYjdhMmVhZDNjYzc1ZDEwMDQzYWM4NDkyZjFiZjI2YzM2Mjg3N2RlYjkxYTc5Mzg0NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzhjMzkzNGNkYWQ2YjU4ODUyMzE5MDhiYjViYWVlOTYzNjMxNDEwNzE3ZWRiMjk0MGE0Mzg3OGJkZjZjMDZiMyJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}

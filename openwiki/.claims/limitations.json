@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:aadd579db0f7ec731b6ab24030b65c06c5b4e4a9f5c1baea9ee42469fe297711",
+  "claims": [
+    {
+      "id": "claim_eee88d25000d4e63aca2a727e74cd707",
+      "statement": "当前只写 Pitch Bend 自动化；MIDI CC 只解析/统计不写入，Channel Pressure / Poly Pressure 也未写入。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L303-L303",
+          "version": "repo-lines-v1:sha256:2d3e42031fb1e8b9d6ed2d1859e30ad48495ff76bb24834574037fe76e8e79d3:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMmQzZTQyMDMxZmIxZThiOWQ2ZWQyZDE4NTllMzBhZDQ4NDk1ZmY3NmJiMjQ4MzQ1NzQwMzdmZTc2ZThlNzlkMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMmQzZTQyMDMxZmIxZThiOWQ2ZWQyZDE4NTllMzBhZDQ4NDk1ZmY3NmJiMjQ4MzQ1NzQwMzdmZTc2ZThlNzlkMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYWVhMTI5NzY3ZmQxYWU4YWYwNWY1NzBmYTQ4YmUzNWQ5NmRlNjFhMTUyMTAyNzUzOTZlMTJjMzYzYjVjZDg2MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzAzZTMwMDIyOGJlN2YxOTA0NzlmYmFiNmM1YWRhNzdhNzU4NmY0Nzc4YTIwMjNkNWZjM2QwZjlkMDQ4MDZmOCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_3dd91dfca5a6450aa831b13e43daa231",
+      "statement": "Program Change 被忽略，MIDI Port 也被忽略；转换器只按 channel 分组。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L306-L307",
+          "version": "repo-lines-v1:sha256:d82fbe49bb87be9064211c1aac2043afb687d36f7dc993b3e2ac3865baaa3894:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMTBkYWMyMWIyZWZhNDAxZGYxOWI5MDJiMmY0YzQyMjUxN2FmOWZjMjUxZGIwZTk3OGU0MjYzODVlMzMzYmQ0ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYmFkZmQzZjc5YTY2M2IwNDZkZjY2NDBjMDM3ZTQ0ZWM0YzYzYTIzYmU5MDAzY2Y5MzhiYTM0ZjAxOTM2MTZlNCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjAwOWI2ZGZiNjM1YzcyYmFiYzI3MDI0ZDA3Y2U1YTU2N2E0MTlmODBmOTc4ZDBlYTA5ZmViMTZkODFiMjQzOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMjI5NzU1YzUxMDE3ZWJjMTRmMmRkYTJjY2NhMDFlZDFmMjhhY2M2ZWI1MjgxZGI5YmJlNjE1NjhlZjU4OGFiYiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_257422b9222d46f895fbbdae138395f6",
+      "statement": "当前只保证 Ableton Live 12.3；其它版本需要单独模板与回归。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L264-L264",
+          "version": "repo-lines-v1:sha256:f0483a36b00744b9e2a8393f0a74ae593ae00e1224434ac2dc4558add5185ea6:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjA0ODNhMzZiMDA3NDRiOWUyYTgzOTNmMGE3NGFlNTkzYWUwMGUxMjI0NDM0YWMyZGM0NTU4YWRkNTE4NWVhNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZjA0ODNhMzZiMDA3NDRiOWUyYTgzOTNmMGE3NGFlNTkzYWUwMGUxMjI0NDM0YWMyZGM0NTU4YWRkNTE4NWVhNiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWU2Mjc1ZTc0ZmQ3ZTI5MTJmY2RmM2ViOWJmNDAyYTNmOTAyMTE3Yzk5NjNiYmEwZmYwYTM0N2RhNDg2MDhmMCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYTU1OWUxY2ZmZmYzOWU4NTI3ZDY3ZWUwMTEzODIzM2IzNDA4NTIyNGZmYmY1NTk1NDU4YTgwNDJjMzQ3ZjY4NCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_c147cfde22a24d4c9b94366c306cea88",
+      "statement": "set_pitch_bend_range 只能修改 .als XML 中的 PitchBendRange/PitchbendRange；不暴露该参数的第三方插件需要手动设置相同范围。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/devices.rs#L74-L93",
+          "version": "repo-lines-v1:sha256:17cc3d1f9ba9c07ad7c4378c66fbc258fe20bfadc28e2f3bd3c4d557e579d4b9:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ3OGRlMGNjNTFlMjJkZDJhMTA5YzhjZGE0MTlkOWMyZWNlYzM1NWRhMWRmNzljNGQ2ZGM1YzBhMTYxMzYzZWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ2YmMyZGY5MTk0YTUxYWIzYjNmYTc1NDM2NzcxODFiYWI2NjJjNTJmNjZiOTRhZTVhNWU3YmIwZTcwY2EzODEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiMTE2MDIyNDczYTQzZDk5MTM4Zjc3MDcwZjQ3NDk4ZmI2YjhhYmQ3MjlkMWUzODY5MjIzNWFlMzg3N2QxNTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0677960ecc1b42ec81e224118457ebe6",
+      "statement": "MIDI 使用 midly 一次性解析；68 万音符可用，但峰值内存约 1.7 GB，更大文件需要惰性/流式处理。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L310-L310",
+          "version": "repo-lines-v1:sha256:cbc6d0ae7fd6832395c5117b1ee3896549be393fdf4a635f212bf6e540e9fe2c:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiY2JjNmQwYWU3ZmQ2ODMyMzk1YzUxMTdiMWVlMzg5NjU0OWJlMzkzZmRmNGE2MzVmMjEyYmY2ZTU0MGU5ZmUyYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiY2JjNmQwYWU3ZmQ2ODMyMzk1YzUxMTdiMWVlMzg5NjU0OWJlMzkzZmRmNGE2MzVmMjEyYmY2ZTU0MGU5ZmUyYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjQzOWZjMmUwOGIxYjQxMGMxODkxNTlhZmEwYTUxZTlkYzEwZjgwYWJmMWVkN2JkMmM5ZjgwOGYwZTExNDA3MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMWM0NGU4Njc4YzJiNDgwOGY2NWJiZTk2MjI0NWZjZmZmNTBmMGFlY2I5MmZjNzI0NDc3NzNkYzcxMGQ0Y2ViOSJ9"
+        },
+        {
+          "resource": "repo://README.md#L325-L325",
+          "version": "repo-lines-v1:sha256:cc2708d560ddc26089c14ae1cab3b58f3a126d9152a5ccc2918fe065bc122791:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiY2MyNzA4ZDU2MGRkYzI2MDg5YzE0YWUxY2FiM2I1OGYzYTEyNmQ5MTUyYTVjY2MyOTE4ZmUwNjViYzEyMjc5MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiY2MyNzA4ZDU2MGRkYzI2MDg5YzE0YWUxY2FiM2I1OGYzYTEyNmQ5MTUyYTVjY2MyOTE4ZmUwNjViYzEyMjc5MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZGQ2YTRkZTA4YWY1NzJiYmM3MTMxNzAzNDM0MzVhYTM2N2UwYTE2YTE0YWYyNzczMWFiMDg2OGIxYWViNjZmNSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTI1MzlkMDBmOTA5YjAyNDk5NDk5YTQ0MTExYTdjMDA4Y2RkYjNjZTAwNDcxZjJhNTdjN2MzNGQ3M2YyZWMwMSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_428cbd21d48941c08f2c993624a545d8",
+      "statement": "ConvertOptions 没有复音上限/voice stealing 字段，转换器不会自动试听输出。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L311-L311",
+          "version": "repo-lines-v1:sha256:bf4d1ba3a43de1125327d49c59c6896fab0baa3d1a0434d9f30e15b44a289e85:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmY0ZDFiYTNhNDNkZTExMjUzMjdkNDljNTljNjg5NmZhYjBiYWEzZDFhMDQzNGQ5ZjMwZTE1YjQ0YTI4OWU4NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYmY0ZDFiYTNhNDNkZTExMjUzMjdkNDljNTljNjg5NmZhYjBiYWEzZDFhMDQzNGQ5ZjMwZTE1YjQ0YTI4OWU4NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjI5NzU1YzUxMDE3ZWJjMTRmMmRkYTJjY2NhMDFlZDFmMjhhY2M2ZWI1MjgxZGI5YmJlNjE1NjhlZjU4OGFiYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDAxZjJlYzE3NTkzYzEwNTRlYjQ2MzY3ZDg0NTNlZjI0YTE3M2NlOTZiNzExN2Q5MWY5YTY4ZDQ0ZmVmOGIwMSJ9"
+        },
+        {
+          "resource": "repo://src/convert/options.rs#L1-L39",
+          "version": "repo-lines-v1:sha256:ec90e2a547594355f1c0444b2397d3b98f037abb8f48438f5a1c03f1bf66ef84:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI5ODkzOTI4YjJiZTRkMjYwNDViNTNlNmRlMDRlYTNiOTE0MTk2NTkxMzliMmIxMTljY2Q4YzQ3NGU5OGVmYTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg3OWEyNTg2NDhkOWZlNDMzOThmNmJhZGU1MGRmNDZhZTI3MDcwZjU0ZTQwZGUxYmZlMDg2NjlkMWE1YzI0NzAifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}

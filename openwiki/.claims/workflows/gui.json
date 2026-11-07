@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:38ab696c747bcf097ed27823d5d28f5b508c90d01582c83fd16362eedf91a36d",
+  "claims": [
+    {
+      "id": "claim_84affe5670974817a8395d8ba16f2c3c",
+      "statement": "GUI 主界面只保留选择 MIDI 和导出 .als 两个主按钮，模板/选项等放在默认折叠的高级面板里。",
+      "evidence": [
+        {
+          "resource": "repo://src/bin/blacklive-gui/app.rs#L183-L247",
+          "version": "repo-lines-v1:sha256:b35f7393967af6db6a6fe71a18c47d18c149dac2db2f234d52d0774ae2098d05:eyJzZWxlY3RlZExpbmVDb3VudCI6NjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU3OGNjZDYxYWM4MmUzNTBkMWRlNTU5N2IwNTYwNWVkOGNkMmY1MjE5YjY2NmQ2NjIwNTg3ZWNlNjE2ODlkNjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5YzEzNTkwNjY1NjMyM2QxYzVlYTQxNjU0ZWU2NmFmYjU4NWFjZGNmYWVhY2ExMjFkNWUzMGJmMTkzZWVkZDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE5ZTc2MzU1Y2YxMTk5NDgwYzNmOTk4MzZiMTQ4NmM4NDFkODkxZmFhZDkwNGM2MDhlMDkzMDIyZDM3NTdhZWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhMTFmM2I1ZDBmMmE4NjM3ZjBjNjE3OGU3ZDg5NWU1OTg2NDBmNGMwMzdjOGMwMDFlOTE2MTU2NWViNGQwODMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9152d126a44b442a85b87b7902b637ab",
+      "statement": "选择 MIDI 后，GUI 自动把输出路径设为同目录同名 .als，并清空旧的 MIDI 统计和转换结果。",
+      "evidence": [
+        {
+          "resource": "repo://src/bin/blacklive-gui/files.rs#L10-L22",
+          "version": "repo-lines-v1:sha256:d978aa542f0d2087f8b402e8f1c2c95133a47398c979928a64b6da2d2bc295de:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5Njk5ZTQ2Njg1MGI2NzdlODc4N2FjZWJjNDdmYjU1ZWMzNmZmNmNjOWYxM2MwYWRlMmM3MTc1YTJmNjE0NDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY2MDQ3ODU2MmMwY2RlZjNhNzczNDkzYjJhY2ZlYTI2N2M0NjA0MDQ1OGJiN2YwMGQ0MTQwNmIxOTMzZGU1ZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjMjIwZTdmMTQ5YTNkYmU5ZjhiOTRlMTAzM2NkNDRlYWM4OWMyNjc2YmMzZjMyMGVkZTUzNDJlMWNhNGI0MWIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c92d35d0cbc642ddbc5a79ddb29ec96b",
+      "statement": "GUI 支持把 .mid/.midi 拖入窗口；拖入 .als 会作为自定义模板分析。",
+      "evidence": [
+        {
+          "resource": "repo://src/bin/blacklive-gui/files.rs#L131-L163",
+          "version": "repo-lines-v1:sha256:5e9d102b9f040c61342e985f8a2ec6e6c29314997f10eee399b95b4e4765bf92:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE5ZWFmNzY5NWVkZTU0ZTE0N2Q5MDEzMGEwMWI3ZGU4NWZmZmRhMDdmNmE3MmQ0NzI5ODdjM2Y4YTYyYTUxYmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk5OWJkZWZlZWFjYTYzNDBlMDI5MGRjODZlODg5Yzg5ZDVlMTg5YWE1YmE0NGI1ODViM2I3MDczNGY0YTYyZDgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJjNzg5ZjBjYTBjODA4M2VkYTZhMzY3ODcwZjM2YTRiMzBlMDMyMzkwMmY5ZmJjZGQ1MGNhMjE5ODA2YjgyYjIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9ba5ac073c854f82a11cf42353e79b75",
+      "statement": "高级面板调用 show_files、show_template、show_midi_stats、show_options，分别处理文件路径/模板/统计/选项。",
+      "evidence": [
+        {
+          "resource": "repo://src/bin/blacklive-gui/app.rs#L238-L245",
+          "version": "repo-lines-v1:sha256:c9ca9d029b593bc210c6212f1bf8fb2a7462f0d2660bd941cf81e37be33a02df:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjIyNmY4ZTNlYTA0MTZhMWJkMmQxNjE0OGFmYWY0ZTk0Yzg3MjI0ZWQyOTY1ODA2NzViOGFkZWRkOGUwOGM2YSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzQ3ZmI3ZWZiZDFmNjg1MmU0NTJlOGVjOTdjOGFhZTkwYTY2ZDczNTI1ODUwZjE5MDM5MDM0Mzk4MGY5MmZiZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzlhMzc3NGVmMGY2NTY1ZTVkNTJjMDhkNjg3ZTBmM2Y5ZjAyZWU5ODA5ZDU3OGVlYjIzYzU4NWJjNzM4N2VkYyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiY2QwNzUzOGRhOWY1ZDc4NWRjZmEwNTQ5ZTUwMjdmNWI0YzBkYTU1MGZhNjFiNjkwYTZjNGFmYWQzZGY5YjM2MyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_b823086b8d56470ea7a714a3bccc2db9",
+      "statement": "状态、错误和日志由 set_status/set_error/log 维护，status.rs 负责按错误/警告着色显示。",
+      "evidence": [
+        {
+          "resource": "repo://src/bin/blacklive-gui/app.rs#L75-L89",
+          "version": "repo-lines-v1:sha256:a8591e79c81ed0c3af5746d167437297a4e024e37a5f884b83a0bd271c7442d1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwMDAxZGI5MDBiMTZlMzZlMzZhMGFlNGU0OTVkNTBmOTFiNTAyMGRhMzg4MWUxZmM5MmMwNjdjNjhlZmE1M2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ2YWY1YjZmZDhhN2Y2N2ZlYzM2NjlhMmJkN2FkZDkzNmNjNGQ0MGRkNjZmZTYzMGFkMjVkYTdlYzdhYzI2ZDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRmMTVmMGMyMmE5MmU4MGViNjdkYmYzZTc5MGViYWFkOTRkY2E5ZDVkNDEyZmUyNDdhYmI5ZmI5NzY0OTRmNDcifQ"
+        },
+        {
+          "resource": "repo://src/bin/blacklive-gui/status.rs#L5-L63",
+          "version": "repo-lines-v1:sha256:4926a86cdb1d780ccf4a0815016bf191d470334573b8afe6abf242a8ba25d82b:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImViYmM5MTNhOTczZTc2ZTM4OTcyYTU1OTNmZDYyOTE2Y2RjMDgzZTA5MGI0ODdiNTkzMjZiZTlhOTM4NGI0OTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE4ODkwMTUwYmNlYWY1ODE4MDI4ZGQ2NzA2ZjViNmJjNDliZDhjODNiNThmNzBjNmY4ZTQ0MGY0OGJiNDliMDIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_3fe5ed8cc01b4499a593c87d54221990",
+      "statement": "GUI 用 FileActions 和 ActionFlags 收集点击，在绘制结束后统一执行 choose/convert/open 等动作。",
+      "evidence": [
+        {
+          "resource": "repo://src/bin/blacklive-gui/actions.rs#L1-L76",
+          "version": "repo-lines-v1:sha256:53f9aef2ff044f4a3af4a1ef8cf360ee631696d98fb34b52528a5f142ba35608:eyJzZWxlY3RlZExpbmVDb3VudCI6NzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEyZmI2MWRlOWNiOWQ2ZDE1OGUyOWYyNjZjMjliOWFkNTYzYTMxOTY4NDg1ZTNjMGUxMWViZTk4MTJjZGVkM2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://src/bin/blacklive-gui/app.rs#L249-L282",
+          "version": "repo-lines-v1:sha256:e2f99273055403a4c83f585e3f3a844b706a1274b21507be6a121af163c55465:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFmODA2MDE3YzFmMGZhNzYwMWQwNzU0NmY0ZGRkMzJiODM5N2IxNjNiNDRlOWE0MDUzYWRiZmRiYzNmZjMwMDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNkMDc1MzhkYTlmNWQ3ODVkY2ZhMDU0OWU1MDI3ZjViNGMwZGE1NTBmYTYxYjY5MGE2YzRhZmFkM2RmOWIzNjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoyLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM3OTRkMDJhODEyMTk0NGQxNzZkMjY1ZTliYjljYzU5ZjZhYjg5MGJjYWRmOGFlZmRlYmRiYmI0ZjJlYTg0NDQifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}

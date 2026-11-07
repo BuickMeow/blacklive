@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:6599e31d7b7da8c0ee40f48a57c4319845db5d76185ae76777c4a182b1819359",
+  "claims": [
+    {
+      "id": "claim_71b08618485f455b8ce097aa27db4d97",
+      "statement": "edit_clip 设置 Clip 的 Time、CurrentStart、CurrentEnd、Loop、ScrollerTimePreserver 和拍号字段，并调用 replace_notes 写入音符。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/clip.rs#L3-L61",
+          "version": "repo-lines-v1:sha256:94cf5878da4a80bce6a9453588aa73f13d237aa9a152d2f2ed710fbb5f15d300:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJjOGEyYTMxMmI1MDAzODc2YTkxOTFjZWU0MmExYTYxMmJkZWVhZjVhNGU2ZGI4ZjgwNDI4YjE0NDMzNjZlZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRkZThjNGI1NzM3N2M3ZmNkOWJlYjQ3YzQ0MTFkOWFlZTY3Y2U5YmQ5OTNkMWM0Mzc4MTI1ZDE4NDhkYTFiMjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ1ZDRjMmQ2YjUzZTZiNWYzN2U2ZDUyYTNkZDA2OTRkMzkyY2UzMzZiOTU1NTUzYTQyYWQzNjBhNGUyMmQ4YjMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_918a2410ed0942a59b247a2668ab5152",
+      "statement": "replace_notes 替换 KeyTracks，清空 PerNoteEventStore 与 NoteProbabilityGroups，并把 NoteIdGenerator.NextId 更新为音符数加一。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/clip.rs#L63-L103",
+          "version": "repo-lines-v1:sha256:df0c66f53e82d6e86003558a0948b7c8908f8c8721eee7393eb8640da735f7e4:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImExNTIyNTFiYWNmZmJiNDUwNzE1ODExMmE4OGVlN2YzMWRiNWQ4NzQ3ZjA1ZWY2OWExYTkwNTFlMmExODM3ZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA2YzhiZTU2YTQ5MmQ2NDk2NWNmNTM3Yjc3YzFkY2RkMWQ1YjYxMWQ0YzEwYTQ3YzRjM2JjZTZiOTVlMmIwNzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZiZjc2NzUwOWU5MjhlMjM5M2E4ZDE2N2U3ZmM5ZDQ4ZjRiODRmZjhhZGZlOWQ1MjNkZjY4ZTAyOTY3NjUwMjIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_4f1cf0f7a3f44fb5bd76e16a368f4b56",
+      "statement": "build_keytracks 按音高分组生成 KeyTrack，写入 MidiNoteEvent 的 Time、Duration、Velocity、OffVelocity，并在模板支持时写 NoteId。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/clip.rs#L105-L163",
+          "version": "repo-lines-v1:sha256:ae70a39170fd2565fc0328d6316a65e4ab9e646ed1ca0930c473d3f16a607085:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MjhiY2IxZDFkYTEyMDgyMDgwZTE4MTBmOTRjZDc4ODc5ODZjMDJiNzhiMzhkMjc5ZDYyMTVmZTM5YTVlODciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM1ZjZmNDY2ZTU5Y2ZjMzA3MDNjNDVmNzJhZjY1ZGU1NGFjMzYzZDM1NGNjMWEzMzMwMzUwYWNkNDUyNDM0YzQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhkMDZjMDFhYTA0MjAxYzNhZDU1YzEwNzU5ZTljM2JkZDFiYzhjNjlhMjdhOGY1MGJlZDQzMzgwZDQzNDEyZDEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_7a7c9f734e5645879d8d606dde3fae11",
+      "statement": "add_midi_automation 将 Pitch Bend 映射到 ControllerTargets.0，将 CC n 映射到 ControllerTargets.(n+1)，并写入 ClipEnvelope。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/clip.rs#L197-L261",
+          "version": "repo-lines-v1:sha256:94e67417bc6bd2dae287a52d2b65f0805ae457c9a870d5542660fadf942ffadb:eyJzZWxlY3RlZExpbmVDb3VudCI6NjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVkNjEzZjZiOTM3YWI0MDc0ZGJkNGY2OTEyMjQ0OGFiNDA1OTU1ZDFmYTg4NjhjMmYxMTMwNzE0MDYzMWU0OGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNjOWRhOTM1YTA5OGE2NDc4Yzc5YzU2YzAwZjgwMDNjYjE2NWQ2ZGZiNGIwMWZkOThkODEzNzgxYmY0ZTU5N2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIyZmFmYjBmZWFiYzk5ZDFmN2RiZWY2YjA1MWM1Y2NjMTEwMjNmZjZmMTNiZmExMDdkZjIyMjBiY2FjNzM3NjEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a63744f04bf04fc3b417d924dc40a6d3",
+      "statement": "路由模式下，通道级 PB/CC 自动化只写入最长的一条有音符子轨，避免较短源轨截断后半段自动化。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/inject/clone.rs#L103-L143",
+          "version": "repo-lines-v1:sha256:958a0a8961f41b17d4245ebc4fd59425fc710e1610bdf6e48d22cefb93bb3812:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdkYjI1ZmE0NjQ3ZWYwYzk4YjVmMDYxY2MxNTRhOTFhZmJkNjkxNGNmOGI2MGM0M2ZhMDU2OTNjYjExYWE3NzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJmYTA3N2FhMTIyMTgyYzFlNzBmN2EyMjRiNGIyNjNkMjc4ZDQzODRmMjI5MGE1MmVhNDg5OTQxYTk4MmI2YzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA3MjkyYjBhMWY0NDJjOTBjZWQyNGUyOTgzYzhkYTlhNDAzNzNhM2YzNDBhZGJkZGYxZGZhN2VlMjI3YjU0YTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI1MDUzZmEzYzhjNjYxYTVjMDhiZTFiMDliZjYyNmM2MGYxY2M4NmU5MjEwZGEyYjg2MDIxMzE0YmU4MmIyZTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ce6a54680c0d4aa899f0b4dafd249fcd",
+      "statement": "空源轨在路由模式下保留为空 MIDI 轨且不创建 Clip；单轨模式会清空设备链后保留空轨。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/inject/clone.rs#L128-L132",
+          "version": "repo-lines-v1:sha256:4351b17076d55fb53a04d989a871bb27abadf5e9917fc52b0cd12c34017e80fa:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNGVkYzBjM2ZjMjExOTJiNjUwMWFjOWE2N2Q0MGZjZTRkNjg5ZWQ0ZDFjYWFlODQ0YzA2YTcxYTEwNjIzOTIzZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTZiMDQ0OTE0Njk3MjJlODM2M2E5NGU0MDQ0NTM4ZTAxM2EyYTIxN2UzNmIxZTU2OGJhNjBhY2I3YjRjOGYyZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzAyYzUyYThmNzg4M2E5MGFkY2Y0ZGU4NWJiZTE3Y2QzZDFlZDRhZmQwYzIxMGE0MWViMWExOGYyZDBjOGE5NiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYTNhOWI4NzU1ZjQ0M2M4MzgxZjMyMGRiYmQyNDUwZDg3OWQ3NDRhZjFjNzFlN2NlODg0YjIxM2VmZmYxZDdkZCJ9"
+        },
+        {
+          "resource": "repo://src/als/inject/clone.rs#L36-L41",
+          "version": "repo-lines-v1:sha256:875dd486743addabe48ec10487845817de827966e898942a3ef71f4ff12bbb6a:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNGVkYzBjM2ZjMjExOTJiNjUwMWFjOWE2N2Q0MGZjZTRkNjg5ZWQ0ZDFjYWFlODQ0YzA2YTcxYTEwNjIzOTIzZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTZiMDQ0OTE0Njk3MjJlODM2M2E5NGU0MDQ0NTM4ZTAxM2EyYTIxN2UzNmIxZTU2OGJhNjBhY2I3YjRjOGYyZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDU0NzJhODkyYzJjNzhiNjI3ZGMwNjlmYzkzNTVhNjgzOWI0NzVlNzMzNTY3ZjRkMjU2ZGJlODEyNzgyYjYxZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTU4YzlhMWQxMTgzZjIyZDM2OGFkYzM2ZTdhMzgzOGQ5M2Q1NGNiZjRjMGIzYjY5OGUyMTk0MTkwMjQ1OWU5YiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_9d5ca53e6de546bc8f29021d165e16dc",
+      "statement": "set_tempo 写入固定 BPM，并在存在多个 Tempo 点时创建或替换 Tempo AutomationEnvelope；事件使用 -63072000 哨兵和同时间双 FloatEvent 形成阶跃。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/tempo.rs#L3-L96",
+          "version": "repo-lines-v1:sha256:55ecfe4a33e43a61f87e5e59c6ae0d9da741041e7f5b4bc80d0b3692d24f07af:eyJzZWxlY3RlZExpbmVDb3VudCI6OTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1MzIzZDBhN2MwZTA4MGE3NWEwNWU5YjBmNzIyOTVjNDA1M2JjYjQwYjE2NjUwYzQ5YTkxN2Q1NDFkMTJjOGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRkZThjNGI1NzM3N2M3ZmNkOWJlYjQ3YzQ0MTFkOWFlZTY3Y2U5YmQ5OTNkMWM0Mzc4MTI1ZDE4NDhkYTFiMjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFjMmU4YzdiNjY5MmFhOGVkNGZjMDVhMDMxY2JkNTFkNWM1MjI5YTU5Y2E5NTc0ODdhYjllZDA3NmU5NTcxYzIifQ"
+        },
+        {
+          "resource": "repo://src/als/tempo.rs#L98-L129",
+          "version": "repo-lines-v1:sha256:0cd567adee07e7415bc1a901e24a3edfc9e6be96c98838d6d333a69b421bff2b:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NWQxYjE4MjI3NTgzODllMjAyNzkwNGQ1MzY5MGQ1ZTQ3OTExYWQ4NGZlMTI3M2ZiMjc1OTA1YzQ5YmM0ZTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFjNzAyZDBjMjI3MjQ1NTk5OGVlYzJjMDQwNjhiYTNjZWQ3ZjU2ODU2YTMyMzRjZWY0NTg5NjUxNzNlOTA3NmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhhZTM5Yjk1ZDMwZWFhM2MyYmZlYjhiZGYwYTIzYjg5ZTNiYTI3MjdkOWRiMjZlZTM2YjUxMmVjNjQ5M2FiMWYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b8c58bf292de42cba129f6b4f6bfb99f",
+      "statement": "clear_clip_envelopes 在写入新自动化前清空模板 Clip 的 Envelopes/Envelopes。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/clip.rs#L165-L171",
+          "version": "repo-lines-v1:sha256:12dce58530baa2471fc8a905ceb0735358b3238c299025598b47bffd59d63672:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzA2NWUzMGY4M2FkNWFkZTVjY2VkMzMxYTAxMWE1NDg0MWE2OWRlYWQ5MzhkODgxOGQxYWY5ZmExYThmNjAwMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjBjMmRlYWQ0ZTYyMDMwNTRmYjllZTg2Nzc4ZjZhZDI0MWQ3YzI5NzJjOGU5MGRlZGYyYzYyMTc2NzIzM2E0YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYWNmOTlmYTUyMDIyOTI5YWI0MDM3NDE0ODE1YTRmMzc3ODA3MWVmYmUyZWUyOTkxNTAzNGU0ZjQ3NTZlYTM3ZSJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}

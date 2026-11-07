@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:042366c50b48d7ce36944204ee8dc44be5ea60ad22212542a090e6588b76b093",
+  "claims": [
+    {
+      "id": "claim_7d15c3aaa6ac49d3a823f12dc77b727b",
+      "statement": "默认模板是 A01 Group，包含一条无 Clip 的 A01 Inst 乐器轨和一条路由到它的 A01-01 MIDI 轨；每个通道只保留一个钢琴实例。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L51-L59",
+          "version": "repo-lines-v1:sha256:802d447f77f2529003ec10215815ad5c05313fbddc55a75ad1ead9d266fb4fe5:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmY3OGMxMDc0NDc3NzVlMWVmNDA0OTRiMDYzNmY5ZmI4YjJkZjBmNjRmOTVjOTRhOWJjMjA4NWViNWRhNThiNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDQ1OGYzMDQ0YjFhOGEwYzEyNTUwMWQyODNiY2ZiN2VhMWE2MmI3MDI1ZWVmMmZiMzY5ZDViZTM4ZjJhZWRiYSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTE1NjFmZjlmNzFjNzVlMWUxMTc4MjZmY2FmMzczM2NkZWU5ZmQxYTliMzgyYTc4ZDJlNDk1NjE2OTkzZjY0NCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYWVkODVhZmMyNjhjMmYwZjgwZDNlNTU1MWM4MTcyMDFiMDBkYWI3NGEyZmJmZWYyMzk5MDViNDk2YzdjZjkyYiJ9"
+        },
+        {
+          "resource": "repo://README.md#L82-L85",
+          "version": "repo-lines-v1:sha256:007f52b2a95ad9297702d6f80eda9a7ca8dcb34037f778d6a2d7b37fbd395fd1:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiN2I3ZjNjNjViMTVmNzI1OWEyNjRhMjI4ZTVhYWM4YjRiMTc0NWZhZTY1MTAxNTViYTRjNmQxNTI0MmViMzUwZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjk2OGVmNTc4ZDdhZGZjMjRmOWU5MGVlYjkyZDgzNTQyYWFhZmMzMGI2YmQzMWIxZmY5NjJmZjA1M2YxN2RkOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiM2FmZGZlYTlmM2M3MzQyM2MzMDZlMzIyMDA4YTk3YTc2ZjgzZjAwMmY1YTY4Mjc2NmY0Y2RmYmFlNTBmY2MwOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOWViZGFiNTI4OTc5ZWQ3ZTNlNGViMzYwYzdjMzcyNDlmNmNmYzllOGU3MDkxMTI2NDFjOWEyNTA2ZDIyY2I3YyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_90a46a3192744f02a7ef68b3d402e94f",
+      "statement": "resolve_prototype 根据 Group 内 MIDI 子轨数量选择 Single（1 条）或 Routed（2 条）模式，其它数量直接报错；路由模式要求 MIDI 轨指向乐器轨。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/inject/mod.rs#L11-L110",
+          "version": "repo-lines-v1:sha256:16db9400465945c806b4260bbe5d3da24f724339cbbd3ee3332859e9fb86e067:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1YTYxNjI0OGY2MWI0N2MyZTE0MDEzYWQwZjM3NDk5NGQxNzNmNzYyYTY1Yjg2ZWNiMGI5OGJiYzhhYmM0NmIwIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJjM2U3YzIyMTQyYmYyNWFjZmYzNzljZjY5NDNmYzJjZGI5NmIzMTIzMmE3YzQ2MGMxN2VmMDBiYTUzYjZkOWI0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI1NmUzMmQ0ZmZhYjFjMmJlODg5YTAzYWY0MmNjZGRjODhlZjNhYWE2YmI4MmIwZTRjZjBjY2Q5ZDY4NmNjMzE4In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_bf06d9e06fa242b3b6165bb2a7342cfe",
+      "statement": "clone_routed_group 克隆乐器轨和 MIDI 轨，设置新 Id、TrackGroupId、Group 输出和 MIDI To，并为每条源轨复制 MIDI 轨。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/inject/clone.rs#L58-L147",
+          "version": "repo-lines-v1:sha256:9f22bc721b37664dec3d4d56eeb5b16b153760bef1a432d20516d5e6e86890cb:eyJzZWxlY3RlZExpbmVDb3VudCI6OTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVkNjEzZjZiOTM3YWI0MDc0ZGJkNGY2OTEyMjQ0OGFiNDA1OTU1ZDFmYTg4NjhjMmYxMTMwNzE0MDYzMWU0OGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM1ZjZmNDY2ZTU5Y2ZjMzA3MDNjNDVmNzJhZjY1ZGU1NGFjMzYzZDM1NGNjMWEzMzMwMzUwYWNkNDUyNDM0YzQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ2Y2NmNjM3Y2VlZjdkZjU1ZmZlZjM4YjVmMTlkZjg3MzA3Nzk3MjFiNjgwNDJiMGM1NGJiMjY4YTBhZjQxNTgifQ"
+        },
+        {
+          "resource": "repo://src/als/inject/mod.rs#L122-L136",
+          "version": "repo-lines-v1:sha256:891004d6adb1d75fb4a155da81c0ece5a78f86ed545c98594c4ce9ffa0ebcb7a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhMDQwODZhODMzNDI2Y2NlMTU3NTQ2ZGZhMDMxZDJhMTZlMDQ5ODcwYjkzYTkwZjgzOTA5OTJiODVjYmEwNzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZkODJlNGE4ZDNjNjZlMDIzOTVhOTVkZDUwMzljNWI2MDAxNzQyZjMxMTE3NTU5NWU3MjI4MzI1NTI1ZDcxMjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc3ZWVmNzFmM2Q1OTAyY2UwYmVhMDhlZDAyMTA0M2FlZTUxMjMxNjFjYjNiNmRjNDZhZTEwNjYzZGNiNTdiYWEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_3286bc5b31254d01b05228f4b96f4ec3",
+      "statement": "PointeeAllocator 从 NextPointeeId 与实际最大 Pointee ID 的较大值开始分配，重映射子树中的 Id 与 PointeeId 引用，并推进 NextPointeeId。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/pointee.rs#L3-L23",
+          "version": "repo-lines-v1:sha256:ef3f18a2cefe7923c6f07d14eb47705bc45d00c8efa3f653dc2ce3692a68885d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmZTM3Y2I5YmQ3YzliMzA5ZDcyNDM4NGJlMGFlMjUyMjBjYzUwNTEzOWNmODk2ODVjMDRhZWQ2Nzg2ZDRkNDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRkZThjNGI1NzM3N2M3ZmNkOWJlYjQ3YzQ0MTFkOWFlZTY3Y2U5YmQ5OTNkMWM0Mzc4MTI1ZDE4NDhkYTFiMjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU2NmE1ZjNlYmQxNDk5YjBlNWIwYTE5Y2UxZDQzNWQ2NTJjMTI1MGNiNDZmMjJmOGRlZjVkNzJlYTYyYjczMTQifQ"
+        },
+        {
+          "resource": "repo://src/als/pointee.rs#L43-L86",
+          "version": "repo-lines-v1:sha256:293578a8493321ad5b0b4d2ef65171ed07a800377567bcabb2b3712ddb9c619f:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlM2M3YWUyMjcyNjQ4NjNiODQ3ZjNhODY1ODQ2NjVmYmE1NGY3ZDE3NTFmOWQxZDAyYWM3ZmNhMmExZDU1ZWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI1NTMwYmZiZmZjODU2YWViZDkyZTJkMWQzZjdmYTVmOTY1ZjVmZWYxYjE3OGQ1MjUxNjc1NmE5NzJlODUxMzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d397ec2d6ccd414bae07f62be5b117f9",
+      "statement": "is_pointee_holder 将 Pointee、ControllerTargets.* 以及所有以 AutomationTarget/ModulationTarget 结尾的特殊目标都视为全局 Pointee ID。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/pointee.rs#L36-L41",
+          "version": "repo-lines-v1:sha256:9733be21f62399b383156e52cb6ff9fa7d58b3c6c6d9ff4da37926435a68437c:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOGJkMzAwNjNmZWIxYWIwYWY4MWVhMmRjZjEzOTBkNTg1ZTQ2MjZkODQzOGZlYjFkODM5YzE5MzhjNTZmODkwZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTllNzYzNTVjZjExOTk0ODBjM2Y5OTgzNmIxNDg2Yzg0MWQ4OTFmYWFkOTA0YzYwOGUwOTMwMjJkMzc1N2FlZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYmI0MWI3ODM3NmFmYjMzZGRjNTdhM2UyN2JlZDI2ZDlhM2RmYjY1Njk1ZmU5NjBiOTljNWU0N2ZkMDY3MDRhMSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_e0b5a8be74084c80bcc5d3056b87d035",
+      "statement": "validate_live_set 检查同级重复 Id、全局 Pointee/AutomationTarget/ModulationTarget/ControllerTargets 重复，以及最大 Pointee ID 是否小于 NextPointeeId。",
+      "evidence": [
+        {
+          "resource": "repo://src/als/validate.rs#L3-L57",
+          "version": "repo-lines-v1:sha256:0e8dce612530a018ca8d89323af5b0bd820ab0066625a21eed42d187e8c6760a:eyJzZWxlY3RlZExpbmVDb3VudCI6NTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2ZTkxZGE4YzI4OWYwY2QwYzJjZWNiMmNmZTNmNWRmYTc2MzBhZGNjMWZkODhhYWEwMGZmMTQ0NWExMzgxMzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRkZThjNGI1NzM3N2M3ZmNkOWJlYjQ3YzQ0MTFkOWFlZTY3Y2U5YmQ5OTNkMWM0Mzc4MTI1ZDE4NDhkYTFiMjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e76af812521c4d5e92f629898d5d4898",
+      "statement": "默认模板由 Live 在 luyou 工程里生成的 A01 Group 整理而来，以避免从其他工程硬搬 GroupTrack 导致对象映射不兼容。",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L85-L85",
+          "version": "repo-lines-v1:sha256:b968ef578d7adfc24f9e90eeb92d83542aaafc30b6bd31b1ff962ff053f17dd8:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjk2OGVmNTc4ZDdhZGZjMjRmOWU5MGVlYjkyZDgzNTQyYWFhZmMzMGI2YmQzMWIxZmY5NjJmZjA1M2YxN2RkOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjk2OGVmNTc4ZDdhZGZjMjRmOWU5MGVlYjkyZDgzNTQyYWFhZmMzMGI2YmQzMWIxZmY5NjJmZjA1M2YxN2RkOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTZjYTk5YzkyMDc2YmY5NTQ1N2Y5YTRhYzEyYTc1MGM1NzZlYTNiMzc4NmVmN2ZlNzBmNGZmY2QxNzI1YTgzYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOWViZGFiNTI4OTc5ZWQ3ZTNlNGViMzYwYzdjMzcyNDlmNmNmYzllOGU3MDkxMTI2NDFjOWEyNTA2ZDIyY2I3YyJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-07T02:37:32.818Z"
+  }
+}
