@@ -2,6 +2,7 @@
 name = "blacklive"
 version = "0.1.0"
 edition = "2024"
+autobins = false
 description = "Convert MIDI files into Ableton Live .als projects by injecting notes into a template"
 license = "MIT OR Apache-2.0"
 
@@ -16,7 +17,7 @@ xmltree = { version = "0.12", features = ["attribute-order"] }
 
 [[bin]]
 name = "blacklive"
-path = "src/bin/blacklive-gui.rs"
+path = "src/bin/blacklive-gui/main.rs"
 
 [profile.release]
 lto = "thin"
