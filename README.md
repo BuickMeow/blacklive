@@ -214,11 +214,18 @@ blacklive/
 │   └── default.als         # 内置 A01 路由模板（Ac Piano Upright，干声）
 ├── src/
 │   ├── lib.rs              # 对外 API、内置模板、数字格式化
-│   ├── midi.rs             # MIDI 解析、LIFO 配对、Tempo Map、CC 事件
-│   ├── als.rs              # gzip/XML、Group 克隆、ID 重映射、音符/PB/Tempo 注入
-│   ├── convert.rs          # 通道分组、过滤/移调、转换编排
+│   ├── midi/               # MIDI 类型、解析、RPN、Tempo、统计
+│   ├── als/                # gzip/XML、模板检查、ID 重映射、Group 克隆、Clip/PB/Tempo
+│   ├── convert/            # 通道分组、过滤/移调、转换编排
 │   └── bin/
-│       └── blacklive-gui.rs   # eframe/egui 0.37 桌面界面
+│       └── blacklive-gui/  # eframe/egui 0.37 桌面界面
+│           ├── main.rs
+│           ├── app.rs
+│           ├── files.rs
+│           ├── options.rs
+│           ├── stats.rs
+│           ├── status.rs
+│           └── actions.rs
 └── tests/
     ├── embedded_template.rs   # 内置模板 + 纯钢琴多通道/空轨/PB 回归测试
     ├── fixtures/pure_piano.mid
