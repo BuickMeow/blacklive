@@ -405,7 +405,8 @@ fn draw_clip(
 }
 
 fn draw_headers(ui: &mut Ui, app: &mut App, project: &ProjectView, header_area: Rect, top: f32) {
-    let painter = ui.painter().clone();
+    let painter = ui.painter().with_clip_rect(header_area);
+    let painter = &painter;
     painter.rect_filled(header_area, egui::CornerRadius::ZERO, theme::SURFACE);
     let header_top = top + HEADER_H;
     let starts = header_top - app.arr_scroll_y;
@@ -414,7 +415,7 @@ fn draw_headers(ui: &mut Ui, app: &mut App, project: &ProjectView, header_area: 
 
     for (index, track) in project.tracks.iter().enumerate() {
         let y = starts + index as f32 * theme::TRACK_H;
-        if y + theme::TRACK_H < header_top || y > header_area.bottom() {
+        if y < header_top - 0.5 || y + theme::TRACK_H > header_area.bottom() + 0.5 {
             continue;
         }
         let row = Rect::from_min_size(
@@ -463,7 +464,7 @@ fn draw_headers(ui: &mut Ui, app: &mut App, project: &ProjectView, header_area: 
             Stroke::NONE,
         ));
         theme::label_at(
-            &painter,
+            painter,
             Rect::from_min_max(
                 Pos2::new(color_rect.left() + 23.0, color_rect.top() + 7.0),
                 Pos2::new(color_rect.right() - 4.0, color_rect.top() + 27.0),
@@ -479,7 +480,7 @@ fn draw_headers(ui: &mut Ui, app: &mut App, project: &ProjectView, header_area: 
             Pos2::new(io_x, row.top() + 2.0),
             Vec2::new(io_w, row.height() - 4.0),
         );
-        draw_io_fields(&painter, io_rect, track.kind);
+        draw_io_fields(painter, io_rect, track.kind);
 
         let right_x = io_rect.right() + 4.0;
         let right_rect = Rect::from_min_max(
