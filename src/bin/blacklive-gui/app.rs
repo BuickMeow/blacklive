@@ -453,7 +453,7 @@ impl App {
         }
         let parsed = self.midi_path.trim().is_empty()
             || (self.midi_parse_rx.is_none() && self.midi_stats.is_some());
-        let timed_out = self.snapshot_started.elapsed().as_secs() > 5;
+        let timed_out = self.snapshot_started.elapsed().as_secs() > 30;
         if self.snapshot_frames < 1 || (!parsed && !timed_out) {
             return;
         }
