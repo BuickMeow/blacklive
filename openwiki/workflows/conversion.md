@@ -24,7 +24,7 @@ generated: { by: "opencode", at: "2026-11-07T02:37:32.818Z" }
 
 # 转换流程与选项
 
-这一页解释一次转换会怎样处理 MIDI，以及每个选项的实际影响。入口是 `data conversion` 的 `ConvertOptions`，默认值在 `src/convert/options.rs`。
+这一页解释一次转换会怎样处理 MIDI，以及每个选项的实际影响。入口是 `ConvertOptions`，默认值在 `src/convert/options.rs`。
 
 ## 默认行为
 
