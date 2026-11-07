@@ -276,6 +276,7 @@ impl App {
             split_source_tracks: self.split_source_tracks,
             keep_empty_tracks: true,
             write_pitch_bend: true,
+            pitch_bend_range: None,
             write_cc_automation: false,
             strip_instrument_effects: self.strip_instrument_effects,
         };

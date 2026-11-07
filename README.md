@@ -168,6 +168,10 @@ Ableton 的 `Time` / `Duration` 使用四分音符 beat。PPQ 从 MIDI 头读取
 - `ControllerTargets.N` 的 ID 在克隆子轨时会重映射；ClipEnvelope 指向重映射后的 ID。
 - Pitch Bend 使用 `ControllerTargets.0`，按 Live 的 -8192..8191（中心 0）写线性包络。
 - 已用 `luyou.als` 的 0→8191→0 PB Envelope 对照：target、sentinel、时间点和值范围一致。
+- 解析 RPN 0,0（Pitch Bend Sensitivity）：CC101/100 选择 RPN，CC6/38 写入半音/音分。
+- 动态 RPN 范围会按时间线折算进 PB 包络：固定范围取 MIDI 中出现的最大 RPN（最低 2，最高 48 半音）；没有 RPN 时按标准 ±2 半音。
+- 克隆乐器时会把 Live 乐器的 `PitchBendRange` / `PitchbendRange` 参数设成同一个固定范围；第三方插件需要在插件里手动设成相同值。
+- Live 的 Simpler 不直接读 RPN，所以不写 CC101/100/6/38 包络，而是把变化烘焙进 PB 值。
 - 当前 **不写 Channel Pressure / Poly Pressure**（Aftertouch 按你的要求不做）。
 - Pitch Bend 只写在一条 MIDI 子轨上；选择该通道里最长的有音符子轨，避免第一条源轨较短时后半段 PB 被截断。其它子轨只带音符。
 
@@ -290,6 +294,7 @@ pub fn inspect_default_template() -> Result<TemplateReport>;
 - 路由 Group 需要 1 条乐器轨 + 1 条 MIDI 轨；旧式单轨 Group 仍兼容。
 - 可以按 `A01`、`A02`… 提供不同原型 Group；未提供的通道使用默认原型。
 - 只写 Pitch Bend 自动化；MIDI CC 暂时只解析/统计、不写入；Channel Pressure / Poly Pressure 未写入。
+- RPN 动态范围已折算进 PB 包络，但最终弯音听感仍建议在 Live 里试听确认。
 - Pitch Bend 已按 `luyou.als` 的 `.0 / -8192..8191` 对照；仍建议在 Live 里试听一次。
 - Program Change 被忽略；不会按音色切换分轨。
 - MIDI Port 被忽略；只按 channel 分组。
@@ -305,6 +310,7 @@ pub fn inspect_default_template() -> Result<TemplateReport>;
 - 内置模板：Live 自己生成的 A01 路由 Group、1 条 `Ac Piano Upright` 乐器轨 + 1 条 MIDI 轨、无音符占位 Clip、Group 干声、Return/Send 数量与模板一致。
 - 内置模板转换：纯钢琴多通道 / 多源轨 / 空轨保留 / meta-only 轨跳过，XML/gzip 与 ID 自检通过。
 - Live 12.3.8 实测打开：内置模板、单通道 `satpiano` 输出、15 通道 `EnchantedLove` 输出均可正常加载。
+- RPN 动态范围测试：`EnchantedLove` 的 2/4/6/12/24 半音变化会折算进 PB 包络，输出乐器的 `PitchBendRange` 统一为 24 半音，Live 可正常加载。
 - 早期从其他工程克隆 GroupTrack 会导致 Live `map::at` 闪退，已改为使用 Live 在当前工程里生成的 Group。
 - 多通道克隆：`FreezeSequencer` 里的 `*ModulationTarget` 也参与全局 ID 重映射；15 通道工程输出无重复 PointeeId。
 - 真实 Live 12.3 工程模板 + 真实 MIDI：Group/子轨克隆、全局 ID 重映射、Arrangement Clip 注入、MIDI 路由、Pitch Bend Clip 自动化、Tempo 自动化，XML/gzip 校验通过。
@@ -312,7 +318,7 @@ pub fn inspect_default_template() -> Result<TemplateReport>;
 - 68 万音符黑 MIDI（5 MB 输入、15 个通道组）：release 下约 3.3 秒转换，输出约 4.2 MB `.als`，峰值内存约 1.7 GB。
 - Group 效果器克隆测试：原型 Group 的 DrumBuss / MultibandDynamics / Eq8 被完整克隆；输出无重复全局 ID，所有 `PointeeId` 引用可解析。
 - A01/A02 不同原型测试：A01 使用 Operator 链，A02 使用 Drift 链；输出正确按通道选择不同原型，ID 校验通过。
-- `cargo test`：10 个单元测试 + 3 个内置模板集成测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
+- `cargo test`：12 个单元测试 + 3 个内置模板集成测试通过；另有 1 个手动 Group 集成测试（`--ignored`）。
 
 手动集成测试：
 

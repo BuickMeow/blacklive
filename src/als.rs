@@ -8,7 +8,7 @@ use flate2::read::MultiGzDecoder;
 use flate2::{Compression, GzBuilder};
 use xmltree::{Element, EmitterConfig, XMLNode};
 
-use crate::midi::{ControllerEvent, Note, PitchBendEvent};
+use crate::midi::{ControllerEvent, Note, PitchBendEvent, PitchBendRangeEvent};
 
 const INSTRUMENT_TAGS: &[&str] = &[
     "InstrumentGroupDevice",
@@ -177,6 +177,10 @@ pub(crate) struct GroupInjectRequest<'a> {
     pub controllers: &'a BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
     /// channel -> raw 14-bit pitch bend events.
     pub pitch_bends: &'a BTreeMap<u8, Vec<PitchBendEvent>>,
+    /// channel -> RPN 0,0 pitch bend sensitivity changes.
+    pub pitch_bend_ranges: &'a BTreeMap<u8, Vec<PitchBendRangeEvent>>,
+    /// Fixed device pitch bend range in semitones used for PB envelope scaling.
+    pub pitch_bend_range: f64,
     pub ppq: u16,
     pub write_pitch_bend: bool,
     pub write_cc_automation: bool,
@@ -1066,6 +1070,9 @@ pub(crate) fn inject_groups(
                     if req.strip_instrument_effects {
                         bypass_instrument_effects(&mut new_child);
                     }
+                    if req.write_pitch_bend {
+                        let _ = set_pitch_bend_range(&mut new_child, req.pitch_bend_range);
+                    }
 
                     let targets = controller_targets(&new_child);
                     strip_midi_clips(&mut new_child);
@@ -1100,6 +1107,8 @@ pub(crate) fn inject_groups(
                             group.channel,
                             req.controllers,
                             req.pitch_bends,
+                            req.pitch_bend_ranges,
+                            req.pitch_bend_range,
                             &targets,
                             req.ppq,
                             child.clip_length_beats,
@@ -1138,6 +1147,19 @@ pub(crate) fn inject_groups(
                 set_record_arm(&mut new_instrument, false);
                 if req.strip_instrument_effects {
                     bypass_instrument_effects(&mut new_instrument);
+                }
+                if req.write_pitch_bend
+                    && req
+                        .pitch_bends
+                        .get(&group.channel)
+                        .is_some_and(|events| !events.is_empty())
+                    && !set_pitch_bend_range(&mut new_instrument, req.pitch_bend_range)
+                {
+                    warnings.push(format!(
+                        "通道 {} 的乐器没有 PitchBendRange 参数；PB 包络已按 {} 半音缩放，请在乐器里手动设置相同范围。",
+                        group.group_name,
+                        crate::format_num(req.pitch_bend_range)
+                    ));
                 }
                 strip_midi_clips(&mut new_instrument);
                 new_tracks.push(XMLNode::Element(new_instrument));
@@ -1203,6 +1225,8 @@ pub(crate) fn inject_groups(
                             group.channel,
                             req.controllers,
                             req.pitch_bends,
+                            req.pitch_bend_ranges,
+                            req.pitch_bend_range,
                             &targets,
                             req.ppq,
                             child.clip_length_beats,
@@ -1625,6 +1649,8 @@ fn add_midi_automation(
     channel: u8,
     controllers: &BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
     pitch_bends: &BTreeMap<u8, Vec<PitchBendEvent>>,
+    pitch_bend_ranges: &BTreeMap<u8, Vec<PitchBendRangeEvent>>,
+    pitch_bend_range: f64,
     targets: &BTreeMap<u8, String>,
     ppq: u16,
     length: f64,
@@ -1658,7 +1684,16 @@ fn add_midi_automation(
 
     if write_pb
         && let Some(events) = pitch_bends.get(&channel)
-        && let Some(points) = pitch_bend_points(events, ppq, length)
+        && let Some(points) = pitch_bend_points(
+            events,
+            pitch_bend_ranges
+                .get(&channel)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]),
+            ppq,
+            length,
+            pitch_bend_range,
+        )
     {
         let Some(target_id) = targets.get(&0) else {
             warnings.push(format!(
@@ -1680,24 +1715,43 @@ fn push_clip_envelope(clip: &mut Element, envelope: Element) {
     inner.children.push(XMLNode::Element(envelope));
 }
 
-fn pitch_bend_points(events: &[PitchBendEvent], ppq: u16, length: f64) -> Option<Vec<(f64, f64)>> {
+fn pitch_bend_points(
+    events: &[PitchBendEvent],
+    ranges: &[PitchBendRangeEvent],
+    ppq: u16,
+    length: f64,
+    fixed_range: f64,
+) -> Option<Vec<(f64, f64)>> {
+    if !fixed_range.is_finite() || fixed_range <= 0.0 {
+        return None;
+    }
+
     let mut by_tick: BTreeMap<u64, u16> = BTreeMap::new();
     for event in events {
         by_tick.insert(event.tick, event.value);
     }
+    let mut ranges = ranges.to_vec();
+    ranges.sort_by_key(|event| event.tick);
 
+    let mut range_index = 0usize;
+    let mut current_range = 2.0; // Standard MIDI default: +/- 2 semitones.
     let mut initial = 0.0;
     let mut changes = Vec::new();
     for (tick, value) in by_tick {
+        while range_index < ranges.len() && ranges[range_index].tick <= tick {
+            current_range = ranges[range_index].semitones;
+            range_index += 1;
+        }
         let beat = tick as f64 / ppq as f64;
         if beat > length {
             continue;
         }
-        let signed = value as i32 - 8192;
+        let signed = value as f64 - 8192.0;
+        let scaled = (signed * current_range / fixed_range).clamp(-8192.0, 8191.0);
         if beat == 0.0 {
-            initial = signed as f64;
+            initial = scaled;
         } else {
-            changes.push((beat, signed as f64));
+            changes.push((beat, scaled));
         }
     }
 
@@ -2145,6 +2199,27 @@ fn bypass_instrument_effects(track: &mut Element) {
     walk(track);
 }
 
+/// Set Simpler/Sampler/Operator-style PitchBendRange parameters in a cloned
+/// instrument. Returns false when the device does not expose a writable range.
+fn set_pitch_bend_range(track: &mut Element, semitones: f64) -> bool {
+    fn walk(element: &mut Element, value: &str) -> bool {
+        let mut found = false;
+        for child in element
+            .children
+            .iter_mut()
+            .filter_map(XMLNode::as_mut_element)
+        {
+            if child.name.eq_ignore_ascii_case("PitchBendRange") {
+                child.attributes.insert("Value".into(), value.into());
+                found = true;
+            }
+            found |= walk(child, value);
+        }
+        found
+    }
+    walk(track, &crate::format_num(semitones))
+}
+
 fn track_devices(track: &Element) -> (Vec<String>, bool) {
     let Some(outer) = track.get_child("DeviceChain") else {
         return (Vec::new(), false);
@@ -2481,6 +2556,10 @@ mod tests {
         bends
     }
 
+    fn no_pb_ranges() -> BTreeMap<u8, Vec<PitchBendRangeEvent>> {
+        BTreeMap::new()
+    }
+
     fn single_group_plan(prototype: RawClip) -> Vec<GroupPlan> {
         vec![GroupPlan {
             channel: 0,
@@ -2515,6 +2594,8 @@ mod tests {
                 tempo_map: None,
                 controllers: &controllers(),
                 pitch_bends: &pitch_bends(),
+                pitch_bend_ranges: &no_pb_ranges(),
+                pitch_bend_range: 2.0,
                 ppq: 480,
                 write_pitch_bend: true,
                 write_cc_automation: true,
@@ -2573,6 +2654,8 @@ mod tests {
                 tempo_map: None,
                 controllers: &controllers(),
                 pitch_bends: &pitch_bends(),
+                pitch_bend_ranges: &no_pb_ranges(),
+                pitch_bend_range: 2.0,
                 ppq: 480,
                 write_pitch_bend: true,
                 write_cc_automation: true,
@@ -2628,6 +2711,8 @@ mod tests {
                 tempo_map: None,
                 controllers: &controllers(),
                 pitch_bends: &pitch_bends(),
+                pitch_bend_ranges: &no_pb_ranges(),
+                pitch_bend_range: 2.0,
                 ppq: 480,
                 write_pitch_bend: true,
                 write_cc_automation: false,
@@ -2645,6 +2730,51 @@ mod tests {
         assert_eq!(xml.matches("<MidiClip").count(), 1);
         assert_eq!(xml.matches("<MidiNoteEvent").count(), 2);
         assert!(xml.contains("Empty"));
+    }
+
+    #[test]
+    fn pitch_bend_points_scale_dynamic_rpn_ranges() {
+        let events = vec![
+            PitchBendEvent {
+                tick: 0,
+                value: 8192,
+            },
+            PitchBendEvent {
+                tick: 240,
+                value: 16383,
+            },
+            PitchBendEvent {
+                tick: 480,
+                value: 16383,
+            },
+            PitchBendEvent {
+                tick: 720,
+                value: 0,
+            },
+        ];
+        let ranges = vec![
+            PitchBendRangeEvent {
+                tick: 0,
+                semitones: 12.0,
+            },
+            PitchBendRangeEvent {
+                tick: 480,
+                semitones: 24.0,
+            },
+        ];
+        let points = pitch_bend_points(&events, &ranges, 480, 2.0, 24.0).unwrap();
+        let at = |beat: f64| {
+            points
+                .iter()
+                .rev()
+                .find(|(time, _)| *time <= beat)
+                .map(|(_, value)| *value)
+                .unwrap()
+        };
+        assert_eq!(at(0.0), 0.0);
+        assert!((at(0.5) - 4095.5).abs() < 1e-9);
+        assert!((at(1.0) - 8191.0).abs() < 1e-9);
+        assert!((at(1.5) + 8192.0).abs() < 1e-9);
     }
 
     #[test]
@@ -2712,6 +2842,8 @@ mod tests {
                 tempo_map: None,
                 controllers: &controllers(),
                 pitch_bends: &pitch_bends(),
+                pitch_bend_ranges: &no_pb_ranges(),
+                pitch_bend_range: 2.0,
                 ppq: 480,
                 write_pitch_bend: true,
                 write_cc_automation: false,
@@ -2758,6 +2890,8 @@ mod tests {
                 tempo_map: Some(&tempo_map),
                 controllers: &controllers(),
                 pitch_bends: &pitch_bends(),
+                pitch_bend_ranges: &no_pb_ranges(),
+                pitch_bend_range: 2.0,
                 ppq: 480,
                 write_pitch_bend: false,
                 write_cc_automation: false,

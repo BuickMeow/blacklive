@@ -36,6 +36,9 @@ pub struct ConvertOptions {
     pub keep_empty_tracks: bool,
     /// Write MIDI Pitch Bend as clip envelope automation.
     pub write_pitch_bend: bool,
+    /// Fixed pitch bend range in semitones. `None` uses the maximum RPN range
+    /// found in the MIDI (at least 2 semitones, capped at 48).
+    pub pitch_bend_range: Option<f64>,
     /// Write MIDI CC automation. Temporarily off; CC-to-effect mapping is future work.
     pub write_cc_automation: bool,
     /// Bypass Reverb/Delay/Chorus/Echo devices inside the cloned instrument.
@@ -59,6 +62,7 @@ impl Default for ConvertOptions {
             split_source_tracks: true,
             keep_empty_tracks: true,
             write_pitch_bend: true,
+            pitch_bend_range: None,
             write_cc_automation: false,
             strip_instrument_effects: true,
         }
@@ -181,6 +185,32 @@ fn convert_midi_with_template(
         .unwrap_or_else(|| "MIDI".to_string());
 
     let mut warnings = parsed.stats.warnings.clone();
+    let max_rpn_pb_range = parsed
+        .stats
+        .pitch_bend_ranges
+        .values()
+        .flatten()
+        .map(|event| event.semitones)
+        .fold(0.0f64, f64::max);
+    let mut fixed_pb_range = opts
+        .pitch_bend_range
+        .unwrap_or_else(|| max_rpn_pb_range.max(2.0));
+    if !fixed_pb_range.is_finite() || fixed_pb_range <= 0.0 {
+        bail!("Pitch Bend 范围必须是正数");
+    }
+    if fixed_pb_range > 48.0 {
+        warnings.push(format!(
+            "Pitch Bend 范围 {} 半音超过 Simpler 上限 48，已按 48 半音输出。",
+            crate::format_num(fixed_pb_range)
+        ));
+        fixed_pb_range = 48.0;
+    }
+    if parsed.stats.pitch_bend_event_count > 0 {
+        warnings.push(format!(
+            "Pitch Bend 使用固定 {} 半音范围；动态 RPN 范围已折算进包络。",
+            crate::format_num(fixed_pb_range)
+        ));
+    }
     if !opts.write_cc_automation {
         let cc_events: usize = parsed
             .stats
@@ -409,6 +439,8 @@ fn convert_midi_with_template(
             tempo_map,
             controllers: &parsed.stats.controllers,
             pitch_bends: &parsed.stats.pitch_bends,
+            pitch_bend_ranges: &parsed.stats.pitch_bend_ranges,
+            pitch_bend_range: fixed_pb_range,
             ppq: parsed.stats.ppq,
             write_pitch_bend: opts.write_pitch_bend,
             write_cc_automation: opts.write_cc_automation,

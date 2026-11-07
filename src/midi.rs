@@ -40,6 +40,15 @@ pub struct PitchBendEvent {
     pub value: u16,
 }
 
+/// RPN 0,0 (Pitch Bend Sensitivity) change, in semitones.
+#[derive(Clone, Debug)]
+pub struct PitchBendRangeEvent {
+    /// Absolute MIDI tick.
+    pub tick: u64,
+    /// Range in semitones; fractional part comes from Data Entry LSB cents.
+    pub semitones: f64,
+}
+
 #[derive(Clone, Debug)]
 pub struct TimeSignatureInfo {
     pub tick: u64,
@@ -68,6 +77,10 @@ pub struct MidiStats {
     pub controllers: BTreeMap<u8, BTreeMap<u8, Vec<ControllerEvent>>>,
     /// channel -> raw 14-bit pitch bend events.
     pub pitch_bends: BTreeMap<u8, Vec<PitchBendEvent>>,
+    /// channel -> RPN 0,0 (Pitch Bend Sensitivity) changes.
+    pub pitch_bend_ranges: BTreeMap<u8, Vec<PitchBendRangeEvent>>,
+    /// Number of RPN 0,0 Data Entry events seen.
+    pub rpn_pitch_bend_range_count: usize,
     /// Number of paired notes before channel/filter/transpose processing.
     pub note_count: usize,
     pub notes_per_channel: BTreeMap<u8, usize>,
@@ -106,6 +119,8 @@ impl Default for MidiStats {
             track_channels: BTreeMap::new(),
             controllers: BTreeMap::new(),
             pitch_bends: BTreeMap::new(),
+            pitch_bend_ranges: BTreeMap::new(),
+            rpn_pitch_bend_range_count: 0,
             note_count: 0,
             notes_per_channel: BTreeMap::new(),
             programs: BTreeMap::new(),
@@ -199,11 +214,16 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
     let mut raw_events: Vec<RawNoteEvent> = Vec::new();
     let mut tempo_events: Vec<(u64, u64, f64)> = Vec::new();
     let mut time_signatures: Vec<TimeSignatureInfo> = Vec::new();
+    let mut rpn_ranges: BTreeMap<u8, BTreeMap<u64, f64>> = BTreeMap::new();
     let mut order = 0u64;
 
     for (track_idx, track) in smf.tracks.iter().enumerate() {
         let mut tick = 0u64;
         let mut track_name: Option<String> = None;
+        let mut rpn_msb = [127u8; 16];
+        let mut rpn_lsb = [127u8; 16];
+        let mut data_msb = [0u8; 16];
+        let mut data_lsb = [0u8; 16];
 
         for event in track {
             tick = tick.saturating_add(event.delta.as_int() as u64);
@@ -254,6 +274,36 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
                         MidiMessage::Controller { controller, value } => {
                             let controller = controller.as_int();
                             let value = value.as_int();
+                            let channel_index = channel as usize;
+                            match controller {
+                                101 => rpn_msb[channel_index] = value,
+                                100 => rpn_lsb[channel_index] = value,
+                                6 => {
+                                    data_msb[channel_index] = value;
+                                    if rpn_msb[channel_index] == 0 && rpn_lsb[channel_index] == 0 {
+                                        let semitones =
+                                            value as f64 + data_lsb[channel_index] as f64 / 100.0;
+                                        rpn_ranges
+                                            .entry(channel)
+                                            .or_default()
+                                            .insert(tick, semitones);
+                                        stats.rpn_pitch_bend_range_count += 1;
+                                    }
+                                }
+                                38 => {
+                                    data_lsb[channel_index] = value;
+                                    if rpn_msb[channel_index] == 0 && rpn_lsb[channel_index] == 0 {
+                                        let semitones =
+                                            data_msb[channel_index] as f64 + value as f64 / 100.0;
+                                        rpn_ranges
+                                            .entry(channel)
+                                            .or_default()
+                                            .insert(tick, semitones);
+                                        stats.rpn_pitch_bend_range_count += 1;
+                                    }
+                                }
+                                _ => {}
+                            }
                             if controller == 64 {
                                 stats.sustain_event_count += 1;
                             }
@@ -314,6 +364,38 @@ pub fn parse_midi_bytes(bytes: &[u8]) -> Result<ParsedMidi> {
                 .insert(track_idx as u16, name.clone());
             stats.track_names.push(name);
         }
+    }
+
+    stats.pitch_bend_ranges = rpn_ranges
+        .into_iter()
+        .map(|(channel, ranges)| {
+            (
+                channel,
+                ranges
+                    .into_iter()
+                    .map(|(tick, semitones)| PitchBendRangeEvent { tick, semitones })
+                    .collect(),
+            )
+        })
+        .collect();
+    if stats.rpn_pitch_bend_range_count > 0 {
+        let mut ranges: Vec<String> = stats
+            .pitch_bend_ranges
+            .values()
+            .flatten()
+            .map(|event| crate::format_num(event.semitones))
+            .collect();
+        ranges.sort_by(|a, b| {
+            a.parse::<f64>()
+                .unwrap_or(0.0)
+                .total_cmp(&b.parse::<f64>().unwrap_or(0.0))
+        });
+        ranges.dedup();
+        let summary = ranges.join(" / ");
+        stats.warnings.push(format!(
+            "检测到 {} 个 RPN 弯音范围变化（{} 半音）；转换时会按动态范围重缩放 Pitch Bend。",
+            stats.rpn_pitch_bend_range_count, summary
+        ));
     }
 
     tempo_events.sort_by_key(|(tick, order, _)| (*tick, *order));
@@ -524,5 +606,44 @@ mod tests {
             },
         ];
         assert_eq!(max_polyphony_ticks(&notes, 480), 1);
+    }
+
+    #[test]
+    fn parses_rpn_pitch_bend_range_changes() {
+        let mut track = Vec::new();
+        fn cc(track: &mut Vec<u8>, controller: u8, value: u8) {
+            track.extend_from_slice(&[0x00, 0xB0, controller, value]);
+        }
+        track.extend_from_slice(&[0x00, 0x90, 0x3C, 0x64]);
+        cc(&mut track, 101, 0);
+        cc(&mut track, 100, 0);
+        cc(&mut track, 6, 12);
+        track.extend_from_slice(&[0x83, 0x60, 0xE0, 0x7F, 0x7F]);
+        cc(&mut track, 101, 0);
+        cc(&mut track, 100, 0);
+        cc(&mut track, 6, 24);
+        track.extend_from_slice(&[0x83, 0x60, 0xE0, 0x7F, 0x7F]);
+        track.extend_from_slice(&[0x83, 0x60, 0x80, 0x3C, 0x40]);
+        track.extend_from_slice(&[0x00, 0xFF, 0x2F, 0x00]);
+
+        let mut smf = Vec::new();
+        smf.extend_from_slice(b"MThd");
+        smf.extend_from_slice(&6u32.to_be_bytes());
+        smf.extend_from_slice(&0u16.to_be_bytes());
+        smf.extend_from_slice(&1u16.to_be_bytes());
+        smf.extend_from_slice(&480u16.to_be_bytes());
+        smf.extend_from_slice(b"MTrk");
+        smf.extend_from_slice(&(track.len() as u32).to_be_bytes());
+        smf.extend_from_slice(&track);
+
+        let parsed = parse_midi_bytes(&smf).unwrap();
+        let ranges = parsed.stats.pitch_bend_ranges.get(&0).unwrap();
+        assert_eq!(ranges.len(), 2);
+        assert_eq!(ranges[0].tick, 0);
+        assert_eq!(ranges[0].semitones, 12.0);
+        assert_eq!(ranges[1].tick, 480);
+        assert_eq!(ranges[1].semitones, 24.0);
+        assert_eq!(parsed.stats.rpn_pitch_bend_range_count, 2);
+        assert_eq!(parsed.stats.pitch_bends.get(&0).unwrap().len(), 2);
     }
 }
