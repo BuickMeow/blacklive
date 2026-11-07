@@ -9,7 +9,21 @@
 - 目标规模：纯钢琴、无 CC 黑乐谱；已实测 68 万音符、15 个通道组
 - 仓库内文档：`openwiki/quickstart.md`（OpenWiki 生成）
 
-> 已用真实 Live 12.3 工程模板与真实 MIDI 跑通：Group 克隆、子轨克隆、全局 ID 重映射、Pitch Bend Clip 自动化、Tempo 自动化、空轨保留均通过 XML/gzip 自检。尚未在 Live 里实际点开试听；最后一步需要你打开输出验证音色、力度和 Group 效果。
+> 已用真实 Live 12.3 工程模板与真实 MIDI 跑通：Group 克隆、子轨克隆、全局 ID 重映射、Pitch Bend Clip 自动化、Tempo 自动化、空轨保留均通过 XML/gzip 自检。输出已在 Live 12.3.8 实测加载；音色、力度和 Group 效果仍建议实际试听确认。
+
+## 界面
+
+界面按 Ableton Live 12 的编曲/会话视图复刻，控件为平直零圆角，图标使用 Material Icons，参数区使用 `egui_extras` 表格布局。
+
+![编曲视图（空白工程）](docs/screenshots/arrangement.png)
+
+载入 MIDI 后，左侧浏览器会列出实际 MIDI 通道和音符数，编曲区按通道显示 Clip：
+
+![编曲视图（载入 MIDI）](docs/screenshots/arrangement-loaded.png)
+
+会话视图：
+
+![会话视图](docs/screenshots/session.png)
 
 ---
 
