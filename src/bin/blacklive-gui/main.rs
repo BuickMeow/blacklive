@@ -6,6 +6,7 @@ mod chrome;
 mod detail;
 mod files;
 mod icons;
+mod menu;
 mod project;
 mod session;
 mod star_grid;

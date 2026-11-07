@@ -13,16 +13,6 @@ pub(crate) fn title_bar(ui: &mut Ui, project: &ProjectView, _actions: &mut UiAct
     let rect = ui.max_rect();
     let painter = ui.painter();
     painter.rect_filled(rect, egui::CornerRadius::ZERO, theme::TITLE_BG);
-    painter.hline(
-        rect.x_range(),
-        rect.top() + 0.5,
-        Stroke::new(1.0, Color32::from_rgb(0x9E, 0x9E, 0x9E)),
-    );
-    painter.hline(
-        rect.x_range(),
-        rect.bottom() - 0.5,
-        Stroke::new(1.0, Color32::from_rgb(0x5E, 0x5E, 0x5E)),
-    );
 
     // The left 78 px are reserved for the native macOS traffic lights.
     let drag_rect = Rect::from_min_max(Pos2::new(rect.left() + 78.0, rect.top()), rect.max);
@@ -74,55 +64,42 @@ pub(crate) fn transport_bar(
     let h = 16.0;
     let mut x = rect.left() + 8.0;
 
-    let session_rect = Rect::from_min_size(Pos2::new(x, top), Vec2::new(15.0, h));
-    if theme::icon_button(
-        ui,
-        session_rect,
-        icons::VIEW_AGENDA,
-        matches!(app.view_mode, super::project::ViewMode::Session),
-        true,
-    )
-    .clicked()
-    {
-        actions.set_view = Some(super::project::ViewMode::Session);
+    let browser_toggle = Rect::from_min_size(Pos2::new(x, top), Vec2::new(18.0, h));
+    if theme::blank_button(ui, browser_toggle).clicked() {
+        app.browser_visible = !app.browser_visible;
     }
-    x += 15.0;
-    let arrangement_rect = Rect::from_min_size(Pos2::new(x, top), Vec2::new(15.0, h));
-    if theme::icon_button(
-        ui,
-        arrangement_rect,
-        icons::GRID_VIEW,
-        matches!(app.view_mode, super::project::ViewMode::Arrangement),
-        true,
-    )
-    .clicked()
-    {
-        actions.set_view = Some(super::project::ViewMode::Arrangement);
+    paint_browser_toggle(ui.painter(), browser_toggle, app.browser_visible);
+    x += 20.0;
+    let browser_arrow = Rect::from_min_size(Pos2::new(x, top), Vec2::new(12.0, h));
+    if theme::blank_button(ui, browser_arrow).clicked() {
+        app.browser_menu_open = !app.browser_menu_open;
     }
-    x += 15.0;
-    let view_drop = Rect::from_min_size(Pos2::new(x, top), Vec2::new(12.0, h));
-    if theme::icon_button(ui, view_drop, icons::ARROW_DROP_DOWN, false, true).clicked() {
-        actions.set_view = Some(match app.view_mode {
-            super::project::ViewMode::Session => super::project::ViewMode::Arrangement,
-            super::project::ViewMode::Arrangement => super::project::ViewMode::Session,
-        });
-    }
+    paint_dropdown(
+        ui.painter(),
+        Pos2::new(browser_arrow.center().x, browser_arrow.center().y),
+        1.0,
+    );
+    app.browser_menu_anchor = Rect::from_min_max(
+        browser_arrow.min,
+        Pos2::new(browser_arrow.right(), rect.bottom()),
+    );
     x += 18.0;
 
     let link_rect = Rect::from_min_size(Pos2::new(x, top), Vec2::new(42.0, h));
-    if theme::bevel_button(ui, link_rect, "Link", None, app.link_enabled, true).clicked() {
+    if theme::flat_button(ui, link_rect, "Link", None, app.link_enabled, true).clicked() {
         app.link_enabled = !app.link_enabled;
     }
     x += 46.0;
     let tap_rect = Rect::from_min_size(Pos2::new(x, top), Vec2::new(38.0, h));
-    if theme::bevel_button(ui, tap_rect, "Tap", None, false, true).clicked() {
+    if theme::flat_button(ui, tap_rect, "Tap", None, false, true).clicked() {
         app.tap_tempo();
     }
     x += 42.0;
 
     let bpm_rect = Rect::from_min_size(Pos2::new(x, top), Vec2::new(76.0, h));
     if let Some(buffer) = &mut app.bpm_edit {
-        let response = theme::text_edit_at(ui, bpm_rect, buffer, "跟随 MIDI", 10.5, Align::Center);
+        let response =
+            theme::flat_text_edit_at(ui, bpm_rect, buffer, "跟随 MIDI", 10.5, Align::Center);
         if app.bpm_focus {
             response.request_focus();
             app.bpm_focus = false;
@@ -133,14 +110,7 @@ pub(crate) fn transport_bar(
         }
     } else {
         let value = format!("{:.2}", project.bpm);
-        theme::value_field(
-            ui,
-            bpm_rect,
-            &value,
-            Align2::CENTER_CENTER,
-            10.5,
-            theme::FIELD,
-        );
+        theme::flat_field(ui.painter(), bpm_rect, &value, Align2::CENTER_CENTER, 10.5);
         let response = ui.interact(bpm_rect, ui.make_persistent_id("bpm_field"), Sense::click());
         if response.clicked() {
             app.begin_bpm_edit();
@@ -152,7 +122,7 @@ pub(crate) fn transport_bar(
     x += 80.0;
 
     let metro_rect = Rect::from_min_size(Pos2::new(x, top), Vec2::new(24.0, h));
-    if theme::bevel_button(ui, metro_rect, "", None, app.metronome_on, true).clicked() {
+    if theme::flat_button(ui, metro_rect, "", None, app.metronome_on, true).clicked() {
         app.metronome_on = !app.metronome_on;
     }
     paint_metronome(ui.painter(), metro_rect);
@@ -162,17 +132,10 @@ pub(crate) fn transport_bar(
         project.time_signature.0, project.time_signature.1
     );
     let sig_rect = Rect::from_min_size(Pos2::new(x, top), Vec2::new(54.0, h));
-    theme::value_field(
-        ui,
-        sig_rect,
-        &sig,
-        Align2::CENTER_CENTER,
-        10.5,
-        theme::FIELD,
-    );
+    theme::flat_field(ui.painter(), sig_rect, &sig, Align2::CENTER_CENTER, 10.5);
     x += 58.0;
     let bar_rect = Rect::from_min_size(Pos2::new(x, top), Vec2::new(52.0, h));
-    theme::bevel_button(ui, bar_rect, "1 Bar", None, false, true);
+    theme::flat_button(ui, bar_rect, "1 Bar", None, false, true);
     paint_dropdown(
         ui.painter(),
         Pos2::new(bar_rect.right() - 9.0, bar_rect.center().y),
@@ -183,17 +146,15 @@ pub(crate) fn transport_bar(
     if rect.width() > 1380.0 {
         let key_x = x.max(rect.left() + 350.0);
         let flat_rect = Rect::from_min_size(Pos2::new(key_x, top), Vec2::new(20.0, h));
-        theme::bevel_button(ui, flat_rect, "♭", None, false, true);
+        theme::flat_button(ui, flat_rect, "♭", None, false, true);
         let key_rect = Rect::from_min_size(Pos2::new(key_x + 23.0, top), Vec2::new(30.0, h));
-        theme::value_field(ui, key_rect, "C", Align2::CENTER_CENTER, 10.5, theme::FIELD);
+        theme::flat_field(ui.painter(), key_rect, "C", Align2::CENTER_CENTER, 10.5);
         let mode_rect = Rect::from_min_size(Pos2::new(key_x + 56.0, top), Vec2::new(62.0, h));
-        theme::bevel_button(
-            ui,
-            mode_rect,
-            "Major",
-            Some(icons::ARROW_DROP_DOWN),
-            false,
-            true,
+        theme::flat_button(ui, mode_rect, "Major", None, false, true);
+        paint_dropdown(
+            ui.painter(),
+            Pos2::new(mode_rect.right() - 9.0, mode_rect.center().y),
+            1.0,
         );
     }
 
@@ -202,24 +163,17 @@ pub(crate) fn transport_bar(
     let mut tx = (rect.center().x - cluster_w * 0.5).max(x + 16.0);
 
     let capture_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(24.0, h));
-    if theme::icon_button(ui, capture_rect, icons::ARROW_RIGHT, true, true).clicked() {
+    if theme::flat_icon_button(ui, capture_rect, icons::ARROW_RIGHT, true, true).clicked() {
         actions.choose_midi = true;
     }
     tx += 27.0;
     let pos1 = position_label(app.playhead_beats, project.time_signature);
     let pos1_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(90.0, h));
-    theme::value_field(
-        ui,
-        pos1_rect,
-        &pos1,
-        Align2::CENTER_CENTER,
-        10.5,
-        theme::FIELD,
-    );
+    theme::flat_field(ui.painter(), pos1_rect, &pos1, Align2::CENTER_CENTER, 10.5);
     tx += 94.0;
 
     let play_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(34.0, h));
-    let play_response = theme::bevel_button(ui, play_rect, "", None, false, true);
+    let play_response = theme::flat_button(ui, play_rect, "", None, false, true);
     let play_color = if app.playing {
         theme::ACCENT_DARK
     } else {
@@ -240,7 +194,7 @@ pub(crate) fn transport_bar(
     tx += 36.0;
 
     let stop_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(30.0, h));
-    let stop_response = theme::bevel_button(ui, stop_rect, "", None, false, true);
+    let stop_response = theme::flat_button(ui, stop_rect, "", None, false, true);
     ui.painter().rect_filled(
         Rect::from_center_size(stop_rect.center(), Vec2::splat(14.0)),
         egui::CornerRadius::ZERO,
@@ -252,7 +206,7 @@ pub(crate) fn transport_bar(
     tx += 32.0;
 
     let record_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(30.0, h));
-    let record_response = theme::bevel_button(ui, record_rect, "", None, false, true);
+    let record_response = theme::flat_button(ui, record_rect, "", None, false, true);
     ui.painter()
         .circle_filled(record_rect.center(), 7.0, theme::TEXT);
     if record_response.clicked() {
@@ -261,15 +215,15 @@ pub(crate) fn transport_bar(
     tx += 36.0;
 
     let plus_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(20.0, h));
-    theme::bevel_button(ui, plus_rect, "", Some(icons::ADD), false, true);
+    theme::flat_button(ui, plus_rect, "", Some(icons::ADD), false, true);
     tx += 23.0;
     let link2 = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(24.0, h));
-    if theme::icon_button(ui, link2, icons::LINK, app.link_enabled, true).clicked() {
+    if theme::flat_icon_button(ui, link2, icons::LINK, app.link_enabled, true).clicked() {
         app.link_enabled = !app.link_enabled;
     }
     tx += 27.0;
     let loop_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(24.0, h));
-    if theme::icon_button(ui, loop_rect, icons::LOOP, app.loop_enabled, true).clicked() {
+    if theme::flat_icon_button(ui, loop_rect, icons::LOOP, app.loop_enabled, true).clicked() {
         app.loop_enabled = !app.loop_enabled;
     }
     tx += 28.0;
@@ -277,20 +231,13 @@ pub(crate) fn transport_bar(
     if rect.width() > 1480.0 {
         let pos2 = position_label(project.duration_beats.max(0.0), project.time_signature);
         let pos2_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(88.0, h));
-        theme::value_field(
-            ui,
-            pos2_rect,
-            &pos2,
-            Align2::CENTER_CENTER,
-            10.5,
-            theme::FIELD,
-        );
+        theme::flat_field(ui.painter(), pos2_rect, &pos2, Align2::CENTER_CENTER, 10.5);
         tx += 92.0;
         let waves_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(24.0, h));
-        theme::icon_button(ui, waves_rect, icons::WAVES, false, true);
+        theme::flat_icon_button(ui, waves_rect, icons::WAVES, false, true);
         tx += 26.0;
         let tune_rect = Rect::from_min_size(Pos2::new(tx, top), Vec2::new(24.0, h));
-        theme::icon_button(ui, tune_rect, icons::TUNE, false, true);
+        theme::flat_icon_button(ui, tune_rect, icons::TUNE, false, true);
     }
 
     // Right-side status and primary actions.
@@ -301,7 +248,7 @@ pub(crate) fn transport_bar(
     rx -= 104.0;
 
     let can_export = !app.midi_path.trim().is_empty();
-    if theme::bevel_button(
+    if theme::flat_button(
         ui,
         export_rect,
         "导出 .als",
@@ -313,7 +260,7 @@ pub(crate) fn transport_bar(
     {
         actions.convert = true;
     }
-    if theme::bevel_button(
+    if theme::flat_button(
         ui,
         choose_rect,
         "选择 MIDI",
@@ -325,6 +272,32 @@ pub(crate) fn transport_bar(
     {
         actions.choose_midi = true;
     }
+
+    let session_view = Rect::from_min_size(Pos2::new(rx - 46.0, top), Vec2::new(22.0, h));
+    if theme::flat_icon_button(
+        ui,
+        session_view,
+        icons::VIEW_AGENDA,
+        matches!(app.view_mode, super::project::ViewMode::Session),
+        true,
+    )
+    .clicked()
+    {
+        actions.set_view = Some(super::project::ViewMode::Session);
+    }
+    let arrangement_view = Rect::from_min_size(Pos2::new(rx - 22.0, top), Vec2::new(22.0, h));
+    if theme::flat_icon_button(
+        ui,
+        arrangement_view,
+        icons::GRID_VIEW,
+        matches!(app.view_mode, super::project::ViewMode::Arrangement),
+        true,
+    )
+    .clicked()
+    {
+        actions.set_view = Some(super::project::ViewMode::Arrangement);
+    }
+    rx -= 50.0;
 
     if rect.width() > 1270.0 {
         let midi_rect = Rect::from_min_size(Pos2::new(rx - 44.0, top), Vec2::new(40.0, h));
@@ -404,6 +377,25 @@ fn paint_metronome(painter: &egui::Painter, rect: Rect) {
         Stroke::new(1.2, theme::TEXT),
     );
     painter.circle_filled(Pos2::new(c.x + 3.0, c.y - 4.0), 1.5, theme::TEXT);
+}
+
+fn paint_browser_toggle(painter: &egui::Painter, rect: Rect, open: bool) {
+    let color = if open {
+        theme::ACCENT_FIELD
+    } else {
+        Color32::from_rgb(0x6A, 0x6A, 0x6A)
+    };
+    let center = rect.center();
+    let left = Rect::from_min_size(
+        Pos2::new(center.x - 6.5, center.y - 6.0),
+        Vec2::new(5.0, 12.0),
+    );
+    let right = Rect::from_min_size(
+        Pos2::new(center.x + 0.5, center.y - 6.0),
+        Vec2::new(6.0, 12.0),
+    );
+    painter.rect_filled(left, egui::CornerRadius::ZERO, color);
+    painter.rect_filled(right, egui::CornerRadius::ZERO, color);
 }
 
 fn paint_dropdown(painter: &egui::Painter, center: Pos2, scale: f32) {

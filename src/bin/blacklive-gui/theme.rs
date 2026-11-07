@@ -274,6 +274,119 @@ pub(crate) fn bevel_button(
     response
 }
 
+pub(crate) fn flat_button(
+    ui: &mut Ui,
+    rect: Rect,
+    label: &str,
+    icon: Option<&str>,
+    active: bool,
+    enabled: bool,
+) -> Response {
+    let id = ui.next_auto_id();
+    let response = ui.interact(rect, id, Sense::click());
+    let hovered = enabled && response.hovered();
+    let pressed = enabled && response.is_pointer_button_down_on();
+    let fill = if !enabled {
+        Color32::from_rgb(0x8E, 0x8E, 0x8E)
+    } else if active {
+        ACCENT_FIELD
+    } else if pressed {
+        Color32::from_rgb(0x8F, 0x8F, 0x8F)
+    } else if hovered {
+        Color32::from_rgb(0xB8, 0xB8, 0xB8)
+    } else {
+        Color32::from_rgb(0xA5, 0xA5, 0xA5)
+    };
+    let text = if enabled { TEXT } else { TEXT_DISABLED };
+    if ui.is_rect_visible(rect) {
+        ui.painter()
+            .rect_filled(rect, egui::CornerRadius::ZERO, fill);
+        draw_button_content(ui, rect, label, icon, text, active);
+    }
+    if hovered {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
+}
+
+pub(crate) fn flat_icon_button(
+    ui: &mut Ui,
+    rect: Rect,
+    icon: &str,
+    active: bool,
+    enabled: bool,
+) -> Response {
+    flat_button(ui, rect, "", Some(icon), active, enabled)
+}
+
+pub(crate) fn blank_button(ui: &mut Ui, rect: Rect) -> Response {
+    let response = ui.interact(rect, ui.next_auto_id(), Sense::click());
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+    }
+    response
+}
+
+pub(crate) fn flat_field(painter: &Painter, rect: Rect, text: &str, align: Align2, size: f32) {
+    painter.rect_filled(
+        rect,
+        egui::CornerRadius::ZERO,
+        Color32::from_rgb(0xA5, 0xA5, 0xA5),
+    );
+    let clipped = painter.with_clip_rect(rect.shrink2(Vec2::new(4.0, 0.0)));
+    clipped.text(
+        match align {
+            Align2::LEFT_CENTER => Pos2::new(rect.left() + 6.0, rect.center().y),
+            Align2::RIGHT_CENTER => Pos2::new(rect.right() - 6.0, rect.center().y),
+            _ => rect.center(),
+        },
+        align,
+        text,
+        FontId::proportional(size),
+        TEXT,
+    );
+}
+
+pub(crate) fn flat_text_edit_at(
+    ui: &mut Ui,
+    rect: Rect,
+    buffer: &mut String,
+    hint: &str,
+    size: f32,
+    align: Align,
+) -> Response {
+    ui.painter().rect_filled(
+        rect,
+        egui::CornerRadius::ZERO,
+        Color32::from_rgb(0xA5, 0xA5, 0xA5),
+    );
+    let mut child = ui.new_child(
+        egui::UiBuilder::new()
+            .max_rect(rect.shrink2(Vec2::new(5.0, 1.0)))
+            .layout(egui::Layout::left_to_right(Align::Center)),
+    );
+    child.style_mut().visuals.extreme_bg_color = Color32::from_rgb(0xA5, 0xA5, 0xA5);
+    child.style_mut().visuals.widgets.inactive.bg_stroke = Stroke::NONE;
+    child.style_mut().visuals.widgets.hovered.bg_stroke = Stroke::NONE;
+    child.style_mut().visuals.widgets.active.bg_stroke = Stroke::NONE;
+    child.style_mut().visuals.override_text_color = Some(TEXT);
+    child.style_mut().spacing.text_edit_width = rect.width();
+    let response = child.add(
+        TextEdit::singleline(buffer)
+            .frame(egui::Frame::NONE)
+            .margin(Margin::ZERO)
+            .font(FontId::proportional(size))
+            .text_color(TEXT)
+            .align(Align2::new(align, Align::Center))
+            .hint_text(RichText::new(hint).color(TEXT_DISABLED).size(size))
+            .min_size(Vec2::new(rect.width() - 10.0, rect.height() - 2.0)),
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(CursorIcon::Text);
+    }
+    response
+}
+
 pub(crate) fn icon_button(
     ui: &mut Ui,
     rect: Rect,

@@ -6,9 +6,10 @@ use blacklive::{
     ConversionResult, ConvertOptions, MidiStats, TemplateReport, convert_midi_to_als,
     convert_midi_to_als_with_default_template, parse_channel_filter,
 };
-use eframe::egui::{self, ViewportCommand};
+use eframe::egui::{self, Rect, ViewportCommand};
 
 use super::actions::UiActions;
+use super::menu::{self, MenuItem};
 use super::project::{ProjectView, ViewMode};
 use super::theme;
 use super::{arrangement, browser, chrome, detail, session};
@@ -57,6 +58,10 @@ pub(crate) struct App {
     pub(crate) solo_tracks: std::collections::BTreeSet<usize>,
 
     pub(crate) browser_search: String,
+    pub(crate) browser_visible: bool,
+    pub(crate) browser_full_height: bool,
+    pub(crate) browser_menu_open: bool,
+    pub(crate) browser_menu_anchor: Rect,
     pub(crate) browser_section: String,
     pub(crate) browser_tag: String,
     pub(crate) browser_filters: bool,
@@ -84,6 +89,10 @@ impl App {
         cc.egui_ctx.set_theme(egui::ThemePreference::Light);
         theme::apply(&cc.egui_ctx);
         cc.egui_ctx.set_visuals(egui::Visuals::light());
+        if std::env::var_os("BLACKLIVE_SNAPSHOT").is_some() {
+            cc.egui_ctx
+                .style_mut_of(egui::Theme::Light, |style| style.animation_time = 0.0);
+        }
         let mut app = Self {
             midi_path: String::new(),
             template_path: String::new(),
@@ -120,6 +129,10 @@ impl App {
             muted_tracks: Default::default(),
             solo_tracks: Default::default(),
             browser_search: String::new(),
+            browser_visible: true,
+            browser_full_height: std::env::var_os("BLACKLIVE_FULL_BROWSER").is_some(),
+            browser_menu_open: std::env::var_os("BLACKLIVE_OPEN_BROWSER_MENU").is_some(),
+            browser_menu_anchor: Rect::NOTHING,
             browser_section: "当前工程".to_string(),
             browser_tag: "全部".to_string(),
             browser_filters: true,
@@ -444,6 +457,32 @@ impl App {
         }
     }
 
+    fn show_browser_menu(&mut self, ctx: &egui::Context) {
+        if !self.browser_menu_open {
+            return;
+        }
+        let items = [
+            MenuItem::action("调律"),
+            MenuItem::action("律动池").shortcut("⌘6"),
+            MenuItem::separator(),
+            MenuItem::action("全高度浏览器").checked(self.browser_full_height),
+        ];
+        if let Some(index) = menu::show(
+            ctx,
+            "browser_view_menu",
+            self.browser_menu_anchor,
+            &mut self.browser_menu_open,
+            &items,
+        ) {
+            match index {
+                0 => self.set_status("调律面板后续接入"),
+                1 => self.set_status("律动池后续接入"),
+                3 => self.browser_full_height = !self.browser_full_height,
+                _ => {}
+            }
+        }
+    }
+
     fn maybe_take_snapshot(&mut self, ctx: &egui::Context) {
         let Some(path) = self.snapshot_path.clone() else {
             return;
@@ -554,6 +593,16 @@ impl eframe::App for App {
             .show(ui, |ui| {
                 chrome::status_bar(ui, self);
             });
+        if self.browser_visible && self.browser_full_height {
+            egui::Panel::left("blacklive_browser")
+                .exact_size(theme::BROWSER_W)
+                .resizable(false)
+                .show_separator_line(false)
+                .frame(egui::Frame::NONE)
+                .show(ui, |ui| {
+                    browser::show(ui, self, &project, &mut actions);
+                });
+        }
         egui::Panel::bottom("blacklive_detail")
             .exact_size(detail_height)
             .resizable(false)
@@ -562,19 +611,22 @@ impl eframe::App for App {
             .show(ui, |ui| {
                 detail::show(ui, self, &project, &mut actions);
             });
-        egui::Panel::left("blacklive_browser")
-            .exact_size(theme::BROWSER_W)
-            .resizable(false)
-            .show_separator_line(false)
-            .frame(egui::Frame::NONE)
-            .show(ui, |ui| {
-                browser::show(ui, self, &project, &mut actions);
-            });
+        if self.browser_visible && !self.browser_full_height {
+            egui::Panel::left("blacklive_browser")
+                .exact_size(theme::BROWSER_W)
+                .resizable(false)
+                .show_separator_line(false)
+                .frame(egui::Frame::NONE)
+                .show(ui, |ui| {
+                    browser::show(ui, self, &project, &mut actions);
+                });
+        }
         egui::CentralPanel::no_frame().show(ui, |ui| match view {
             ViewMode::Arrangement => arrangement::show(ui, self, &project, &mut actions),
             ViewMode::Session => session::show(ui, self, &project, &mut actions),
         });
 
+        self.show_browser_menu(ui.ctx());
         self.apply_actions(actions, ui.ctx());
         self.update_window_title(ui.ctx(), &project);
         self.maybe_take_snapshot(ui.ctx());
