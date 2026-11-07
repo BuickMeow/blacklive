@@ -514,7 +514,7 @@ impl eframe::App for App {
                 chrome::transport_bar(ui, self, &project, &mut actions);
             });
         egui::Panel::bottom("blacklive_status")
-            .exact_size(34.0)
+            .exact_size(36.0)
             .show_separator_line(false)
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {

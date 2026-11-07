@@ -138,9 +138,19 @@ pub(crate) fn transport_bar(
         rect.bottom() - 0.5,
         Stroke::new(1.0, Color32::from_rgb(0x6F, 0x6F, 0x6F)),
     );
+    let lower = Rect::from_min_max(
+        Pos2::new(rect.left(), rect.top() + 17.0),
+        Pos2::new(rect.right(), rect.bottom() - 1.0),
+    );
+    painter.rect_filled(lower, egui::CornerRadius::ZERO, theme::TITLE_BG);
+    painter.hline(
+        lower.x_range(),
+        lower.top() + 0.5,
+        Stroke::new(1.0, Color32::from_rgb(0x6F, 0x6F, 0x6F)),
+    );
 
-    let top = rect.top() + 6.0;
-    let h = 18.0;
+    let top = rect.top() + 1.0;
+    let h = 16.0;
     let mut x = rect.left() + 8.0;
 
     let session_rect = Rect::from_min_size(Pos2::new(x, top), Vec2::new(15.0, h));
@@ -504,9 +514,9 @@ fn paint_meter(painter: &egui::Painter, rect: Rect, value: f32) {
 pub(crate) fn status_bar(ui: &mut Ui, app: &App) {
     let rect = ui.max_rect();
     let painter = ui.painter().clone();
-    let top_strip = Rect::from_min_size(rect.min, Vec2::new(rect.width(), 7.0));
+    let top_strip = Rect::from_min_size(rect.min, Vec2::new(rect.width(), 8.0));
     let info = Rect::from_min_max(
-        Pos2::new(rect.left(), rect.top() + 7.0),
+        Pos2::new(rect.left(), rect.top() + 8.0),
         Pos2::new(rect.right(), rect.bottom() - 8.0),
     );
     let bottom_strip = Rect::from_min_max(Pos2::new(rect.left(), rect.bottom() - 8.0), rect.max);
