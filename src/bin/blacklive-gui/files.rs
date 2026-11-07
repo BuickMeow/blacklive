@@ -1,24 +1,34 @@
 use std::path::Path;
 
 use blacklive::parse_midi_file;
-use eframe::egui::{self, Color32, RichText};
+use eframe::egui;
 
 use super::App;
-use super::actions::FileActions;
 
 impl App {
-    pub(crate) fn choose_midi(&mut self) {
+    pub(crate) fn choose_midi(&mut self, ctx: egui::Context) {
         if let Some(path) = rfd::FileDialog::new()
             .add_filter("MIDI", &["mid", "midi", "MID"])
             .pick_file()
         {
-            self.midi_path = path.display().to_string();
-            self.output_path = path.with_extension("als").display().to_string();
-            self.midi_stats = None;
-            self.last_result = None;
-            self.log(format!("选择 MIDI: {}", path.display()));
-            self.set_status("已选择 MIDI，可以导出 .als。");
+            self.load_midi(path, ctx);
         }
+    }
+
+    pub(crate) fn load_midi(&mut self, path: std::path::PathBuf, ctx: egui::Context) {
+        self.midi_path = path.display().to_string();
+        self.output_path = path.with_extension("als").display().to_string();
+        self.midi_stats = None;
+        self.last_result = None;
+        self.bpm_text.clear();
+        self.bpm_edit = None;
+        self.selected_track = Some(0);
+        self.armed_tracks.clear();
+        self.muted_tracks.clear();
+        self.solo_tracks.clear();
+        self.log(format!("选择 MIDI: {}", path.display()));
+        self.set_status("正在解析 MIDI…");
+        self.start_parse(ctx);
     }
 
     pub(crate) fn choose_template(&mut self) {
@@ -89,7 +99,7 @@ impl App {
                 ));
                 self.selected_clip = report.recommended_clip;
                 self.template_report = Some(report);
-                self.set_status("模板分析完成。请确认要替换的 Clip。");
+                self.set_status("模板分析完成。");
             }
             Err(err) => {
                 self.template_report = None;
@@ -142,12 +152,8 @@ impl App {
                 .as_deref()
             {
                 Some("mid") | Some("midi") => {
-                    self.midi_path = path.display().to_string();
-                    self.output_path = path.with_extension("als").display().to_string();
-                    self.midi_stats = None;
-                    self.last_result = None;
                     self.log(format!("拖入 MIDI: {}", path.display()));
-                    self.set_status("已选择 MIDI，可以导出 .als。");
+                    self.load_midi(path, ctx.clone());
                 }
                 Some("als") => {
                     self.template_path = path.display().to_string();
@@ -158,144 +164,6 @@ impl App {
                     self.analyze_template();
                 }
                 _ => {}
-            }
-        }
-    }
-
-    pub(crate) fn show_files(&mut self, ui: &mut egui::Ui) -> FileActions {
-        let mut actions = FileActions::default();
-        let builtin_template = self.template_is_builtin();
-
-        egui::Grid::new("files")
-            .num_columns(3)
-            .spacing([8.0, 8.0])
-            .show(ui, |ui| {
-                ui.label("MIDI");
-                let response =
-                    ui.add(egui::TextEdit::singleline(&mut self.midi_path).desired_width(620.0));
-                if response.changed() {
-                    self.midi_stats = None;
-                    self.last_result = None;
-                }
-                if ui.button("选择…").clicked() {
-                    actions.choose_midi = true;
-                }
-                ui.end_row();
-
-                ui.label("模板");
-                ui.horizontal(|ui| {
-                    if builtin_template {
-                        ui.label("内置 Ac Piano Upright");
-                        if ui.button("使用自定义模板…").clicked() {
-                            actions.choose_template = true;
-                        }
-                        if ui.button("分析").clicked() {
-                            actions.analyze_template = true;
-                        }
-                    } else {
-                        let response = ui.add(
-                            egui::TextEdit::singleline(&mut self.template_path)
-                                .desired_width(480.0),
-                        );
-                        if response.changed() {
-                            self.template_report = None;
-                            self.selected_clip = None;
-                            self.last_result = None;
-                        }
-                        if ui.button("选择…").clicked() {
-                            actions.choose_template = true;
-                        }
-                        if ui.button("内置模板").clicked() {
-                            actions.clear_template = true;
-                        }
-                        if ui.button("分析").clicked() {
-                            actions.analyze_template = true;
-                        }
-                    }
-                });
-                ui.end_row();
-
-                ui.label("输出 .als");
-                ui.add(egui::TextEdit::singleline(&mut self.output_path).desired_width(620.0));
-                if ui.button("另存为…").clicked() {
-                    actions.choose_output = true;
-                }
-                ui.end_row();
-            });
-
-        ui.horizontal(|ui| {
-            if ui.button("解析 MIDI").clicked() {
-                actions.analyze_midi = true;
-            }
-            if ui.button("导出模板 XML").clicked() {
-                actions.dump_xml = true;
-            }
-        });
-        actions
-    }
-
-    pub(crate) fn show_template(&mut self, ui: &mut egui::Ui) {
-        let Some(report) = &self.template_report else {
-            return;
-        };
-        ui.add_space(6.0);
-        ui.label(format!(
-            "Live {}   BPM {}   {} 条轨道   {} 个 Clip",
-            report.minor_version,
-            report
-                .bpm
-                .map(blacklive::format_num)
-                .unwrap_or_else(|| "?".into()),
-            report.tracks.len(),
-            report.clips.len()
-        ));
-
-        if report.clips.is_empty() {
-            ui.colored_label(Color32::from_rgb(240, 170, 80), "模板里没有 MidiClip。");
-        } else {
-            let mut selected = self.selected_clip;
-            for clip in &report.clips {
-                let label = format!("#{}  {}", clip.candidate_index, clip.display_label());
-                ui.selectable_value(&mut selected, Some(clip.candidate_index), label);
-            }
-            self.selected_clip = selected;
-        }
-
-        egui::CollapsingHeader::new("轨道")
-            .default_open(false)
-            .show(ui, |ui| {
-                for track in &report.tracks {
-                    let group = track
-                        .group_name
-                        .as_ref()
-                        .map(|name| format!("  @ {name}"))
-                        .unwrap_or_default();
-                    let warning = if track.kind == blacklive::als::TrackKind::Midi
-                        && !track.has_instrument
-                        && !track.routed_to_instrument
-                    {
-                        "  [!] 无乐器"
-                    } else if track.routed_to_instrument {
-                        "  → 乐器轨"
-                    } else {
-                        ""
-                    };
-                    ui.label(format!(
-                        "#{} [{}] {}{}{}",
-                        track.index, track.kind, track.name, group, warning
-                    ));
-                    if !track.devices.is_empty() {
-                        ui.label(format!("    设备: {}", track.devices.join(", ")));
-                    }
-                }
-            });
-
-        if !report.warnings.is_empty() {
-            ui.add_space(2.0);
-            for warning in &report.warnings {
-                ui.label(
-                    RichText::new(format!("⚠ {warning}")).color(Color32::from_rgb(235, 180, 90)),
-                );
             }
         }
     }

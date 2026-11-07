@@ -3,8 +3,10 @@ use std::process::Command;
 
 use anyhow::{Context, Result};
 
+use super::project::ViewMode;
+
 #[derive(Default)]
-pub(crate) struct FileActions {
+pub(crate) struct UiActions {
     pub(crate) choose_midi: bool,
     pub(crate) choose_template: bool,
     pub(crate) clear_template: bool,
@@ -12,22 +14,10 @@ pub(crate) struct FileActions {
     pub(crate) analyze_template: bool,
     pub(crate) analyze_midi: bool,
     pub(crate) dump_xml: bool,
-}
-
-#[derive(Default)]
-pub(crate) struct ActionFlags {
     pub(crate) convert: bool,
     pub(crate) open_result: Option<PathBuf>,
     pub(crate) open_folder: Option<PathBuf>,
-}
-
-pub(crate) fn non_empty(value: &str) -> Option<String> {
-    let value = value.trim();
-    if value.is_empty() {
-        None
-    } else {
-        Some(value.to_string())
-    }
+    pub(crate) set_view: Option<ViewMode>,
 }
 
 pub(crate) fn open_in_default(path: &Path) -> Result<()> {

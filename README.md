@@ -5,7 +5,7 @@
 - 输入：标准 MIDI（`.mid` / `.midi`）
 - 模板：默认内置干净的 `Ac Piano Upright` 路由模板；需要换音色/效果/Live 版本时才用自定义模板
 - 输出：按 MIDI 通道分 Group 的 Live 工程
-- GUI：egui / eframe **0.37**
+- GUI：egui / eframe **0.37**，复刻 Ableton Live 12 的编曲/会话界面（Material Icons + egui_extras）
 - 目标规模：纯钢琴、无 CC 黑乐谱；已实测 68 万音符、15 个通道组
 - 仓库内文档：`openwiki/quickstart.md`（OpenWiki 生成）
 
@@ -122,7 +122,20 @@ cd /Users/jieneng/Documents/GitHub/blacklive
 cargo run --release --bin blacklive
 ```
 
-界面主流程：
+界面按 Ableton Live 12 的布局复刻，打开后直接是工程视图：
+
+```text
+┌ 标题栏 ─────────────────────────────────────────────────────┐
+│ 文件菜单 / 视图切换 / 传输控制 / BPM / 拍号 / 选择 MIDI / 导出 .als │
+├ 浏览器 ─────────────┬ 编曲（Arrangement）或会话（Session）──────┤
+│ 当前工程、MIDI、模板、 │ 轨道、Clip、轨道头、返回/Master、时间尺    │
+│ 输出、分析、日志       │                                         │
+├ 转换器 ─────────────┴─────────────────────────────────────────┤
+│ BPM / 移调 / 通道 / 最短时值 / 尾部 / 起点 / 拆分 / 效果开关      │
+└ 状态栏 ───────────────────────────────────────────────────────┘
+```
+
+主流程：
 
 ```text
 [选择 MIDI…]  [导出 .als]
@@ -131,17 +144,13 @@ cargo run --release --bin blacklive
 - 默认使用内置 `Ac Piano Upright` 模板，不用选模板。
 - 输出默认放在 MIDI 同目录、同名的 `.als`。
 - 拖拽 `.mid` / `.midi` 到窗口即可。
+- 左上角两个方块在 **编曲（Arrangement）** 和 **会话（Session）** 之间切换。
+- 顶部 BPM 字段可以点击输入；清空后跟随 MIDI/模板 BPM。旁边的 `Tap` 支持点拍测速。
+- 左侧浏览器「当前工程」里可以直接选择 MIDI、模板、输出路径，也可以触发解析/分析。
+- 底部「转换」是参数面板，「信息」显示 MIDI/模板/转换统计，「日志」显示完整日志。
 - 导出后可直接「在 Live 中打开」或「打开所在文件夹」。
 
-「高级」里保留：
-
-- 自定义模板 `.als` / 切回内置模板
-- 输出路径
-- 分析模板，列出 Group、轨道、Clip
-- 解析 MIDI，显示音符数、通道、PPQ、BPM、最大复音、变速点、每通道 CC/Pitch Bend 数量
-- 通道过滤、移调、BPM 覆盖、最短时值、尾部留白、起点、同音高重叠处理
-- 按源轨道拆分、关闭乐器内 Reverb/Delay
-- 导出模板 XML（内置或自定义）
+> 界面只是 Live 风格的壳；音符、Group、Pitch Bend、Tempo 的转换逻辑没有变化。没有 MIDI 时，编曲区会显示与 Live 一致的空白工程和提示文字。
 
 ---
 
@@ -219,7 +228,7 @@ blacklive/
 │   ├── als/                # gzip/XML、模板检查、ID 重映射、Group 克隆、Clip/PB/Tempo
 │   ├── convert/            # 通道分组、过滤/移调、转换编排
 │   └── bin/
-│       └── blacklive-gui/  # eframe/egui 0.37 桌面界面
+│       └── blacklive-gui/  # Live 风格 eframe/egui 界面（主题、编曲、会话、浏览器、转换器）
 │           ├── main.rs
 │           ├── app.rs
 │           ├── files.rs
